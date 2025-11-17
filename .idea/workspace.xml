@@ -4,7 +4,22 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3e37e643-4bfd-409f-a18b-6dd9410329a3" name="Changes" comment="" />
+    <list default="true" id="3e37e643-4bfd-409f-a18b-6dd9410329a3" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.env" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/contexts/AuthContext.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/data/api/AuthApi.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/data/repositories/AuthRepositoryImpl.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/di/DIContainer.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/domain/entities/User.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/domain/repositories/AuthRepository.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/domain/usecases/LoginUseCase.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/domain/usecases/RegisterUseCase.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/Header.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/Header.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/auth/LoginPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/auth/LoginPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/auth/RegisterPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/auth/RegisterPage.tsx" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -13,10 +28,25 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "CyberGhost2175"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/CyberGhost2175/toi-zhyry.git",
+    "accountId": "7762c37a-368c-4b6a-baaa-a7034dc431ba"
+  }
+}]]></component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4
 }</component>
   <component name="ProjectId" id="34pFlsk3YwSwURB5vJjUcvRemyj" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -27,6 +57,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "master",
     "last_opened_file_path": "/Users/developer/Desktop/toi-zhyry",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -40,11 +71,11 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/src/components/auth" />
+      <recent name="$PROJECT_DIR$/src/domain" />
       <recent name="$PROJECT_DIR$/src" />
+      <recent name="$PROJECT_DIR$/src/components/auth" />
       <recent name="$PROJECT_DIR$/src/components" />
       <recent name="$PROJECT_DIR$" />
-      <recent name="$PROJECT_DIR$/src/styles" />
     </key>
   </component>
   <component name="SharedIndexes">
@@ -66,7 +97,7 @@
       <workItem from="1762317373184" duration="94000" />
       <workItem from="1762625633684" duration="617000" />
       <workItem from="1762917110446" duration="568000" />
-      <workItem from="1763384069632" duration="3496000" />
+      <workItem from="1763384069632" duration="8847000" />
     </task>
     <servers />
   </component>

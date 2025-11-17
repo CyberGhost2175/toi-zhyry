@@ -10,6 +10,7 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { LoginPage } from "./components/auth/LoginPage";
 import { RegisterPage } from "./components/auth/RegisterPage";
 import { ForgotPasswordPage } from "./components/auth/ForgotPasswordPage";
+import { AuthProvider } from "./contexts/AuthContext";
 
 type Page = 'home' | 'catalog' | 'service-detail' | 'client-dashboard' | 'partner-dashboard' | 'admin-dashboard' | 'login' | 'register' | 'forgot-password';
 
@@ -53,10 +54,12 @@ export default function App() {
         currentPage !== 'forgot-password';
 
     return (
+        <AuthProvider>
         <div className="min-h-screen bg-[#F9F9F9] font-['Inter',_sans-serif]">
             {showHeaderFooter && <Header onNavigate={handleNavigate} currentPage={currentPage} />}
             {renderPage()}
             {showHeaderFooter && <Footer />}
         </div>
+            </AuthProvider>
     );
 }
