@@ -585,7 +585,8 @@ export function PartnerDashboard({ onNavigate }: PartnerDashboardProps) {
           city: serviceForm.city,
           address: serviceForm.address,
           thumbnail: serviceForm.thumbnail || undefined,
-          imageUrls: serviceForm.imageUrls?.length ? serviceForm.imageUrls : undefined,
+          // Always send array to avoid backend null images collection.
+          imageUrls: serviceForm.imageUrls ?? [],
           isActive: serviceForm.isActive ?? true,
         });
         toast.success("Услуга обновлена", {
@@ -603,7 +604,8 @@ export function PartnerDashboard({ onNavigate }: PartnerDashboardProps) {
           city: serviceForm.city,
           address: serviceForm.address,
           thumbnail: serviceForm.thumbnail || undefined,
-          imageUrls: serviceForm.imageUrls?.length ? serviceForm.imageUrls : undefined,
+          // Always send array to avoid backend null images collection.
+          imageUrls: serviceForm.imageUrls ?? [],
         });
         toast.success("Услуга создана и отправлена на модерацию", {
           description: "После одобрения администратором она появится в каталоге. Мы уведомим вас.",

@@ -12,4 +12,6 @@ export interface ServicesFilterDto {
   searchQuery?: string;
   hasImages?: boolean;
   minReviews?: number;
+  /** Swagger: POPULARITY, PRICE_ASC, PRICE_DESC, RATING */
+  sortType?: string;
 }

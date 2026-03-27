@@ -17,6 +17,7 @@ export interface CatalogService {
   rating: number;
   reviewsCount: number;
   viewsCount: number;
+  bookingsCount?: number;
   thumbnail: string;
   images: string[];
   isFavorite: boolean;

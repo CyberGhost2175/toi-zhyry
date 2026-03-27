@@ -5,7 +5,7 @@ import { Slider } from "./ui/slider";
 import { Checkbox } from "./ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Input } from "./ui/input";
-import { ServicesCatalogApi, type SortDirection } from "../data/api/ServicesCatalogApi";
+import { ServicesCatalogApi, type ServicesSortType } from "../data/api/ServicesCatalogApi";
 import { FavoritesApi } from "../data/api/FavoritesApi";
 import type { ServiceCategory } from "../domain/entities/Category";
 import type { CatalogService } from "../domain/entities/Service";
@@ -15,12 +15,11 @@ import { toast } from "sonner";
 const servicesApi = new ServicesCatalogApi();
 const favoritesApi = new FavoritesApi();
 
-const SORT_OPTIONS: { value: string; label: string; direction: SortDirection }[] = [
-  { value: "createdAt", label: "По дате", direction: "DESC" },
-  { value: "rating", label: "По рейтингу", direction: "DESC" },
-  { value: "priceFrom", label: "Сначала дешевле", direction: "ASC" },
-  { value: "priceTo", label: "Сначала дороже", direction: "DESC" },
-  { value: "reviewsCount", label: "По отзывам", direction: "DESC" },
+const SORT_OPTIONS: { value: ServicesSortType; label: string }[] = [
+  { value: "POPULARITY", label: "По популярности" },
+  { value: "RATING", label: "По рейтингу" },
+  { value: "PRICE_ASC", label: "Сначала дешевле" },
+  { value: "PRICE_DESC", label: "Сначала дороже" },
 ];
 
 const CITIES = ["Алматы", "Астана", "Шымкент", "Караганда", "Актобе", "Тараз"];
@@ -42,8 +41,7 @@ export function CatalogPage({ onNavigate, initialCategoryName, initialSearchQuer
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(0);
   const [size] = useState(12);
-  const [sortBy, setSortBy] = useState("createdAt");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("DESC");
+  const [sortType, setSortType] = useState<ServicesSortType>("POPULARITY");
 
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500000]);
   const [city, setCity] = useState<string>("");
@@ -54,6 +52,8 @@ export function CatalogPage({ onNavigate, initialCategoryName, initialSearchQuer
   const [hasImages, setHasImages] = useState(false);
   const [minReviews, setMinReviews] = useState<number | undefined>(undefined);
   const [applyFiltersKey, setApplyFiltersKey] = useState(0);
+  const minPrice = priceRange[0];
+  const maxPrice = priceRange[1];
 
   // Синхронизация с initialSearchQuery при переходе с главной
   useEffect(() => {
@@ -72,15 +72,6 @@ export function CatalogPage({ onNavigate, initialCategoryName, initialSearchQuer
     };
   }, [searchInputValue]);
 
-  const hasAdvancedFilters =
-    city !== "" ||
-    ratingMin !== undefined ||
-    searchQuery.trim() !== "" ||
-    hasImages ||
-    minReviews !== undefined ||
-    priceRange[0] > 0 ||
-    priceRange[1] < 500000;
-
   const loadCategories = useCallback(async () => {
     try {
       const list = await servicesApi.getCategories();
@@ -94,38 +85,22 @@ export function CatalogPage({ onNavigate, initialCategoryName, initialSearchQuer
     setLoading(true);
     setError(null);
     try {
-      if (hasAdvancedFilters) {
-        const filter: ServicesFilterDto = {
-          categoryId: selectedCategoryId,
-          priceMin: priceRange[0] || undefined,
-          priceMax: priceRange[1] !== 500000 ? priceRange[1] : undefined,
-          ratingMin,
-          city: city || undefined,
-          searchQuery: searchQuery.trim() || undefined,
-          hasImages: hasImages || undefined,
-          minReviews,
-        };
-        const res = await servicesApi.getServicesFilter(filter, {
-          page,
-          size,
-          sortBy,
-          sortDirection,
-        });
-        setServices(res.content);
-        setTotalElements(res.totalElements);
-        setTotalPages(res.totalPages);
-      } else {
-        const res = await servicesApi.getServices({
-          categoryId: selectedCategoryId,
-          page,
-          size,
-          sortBy,
-          sortDirection,
-        });
-        setServices(res.content);
-        setTotalElements(res.totalElements);
-        setTotalPages(res.totalPages);
-      }
+      const filter: ServicesFilterDto = {
+        categoryId: selectedCategoryId,
+        priceMin: priceRange[0] || undefined,
+        priceMax: priceRange[1] !== 500000 ? priceRange[1] : undefined,
+        ratingMin,
+        city: city || undefined,
+        cities: city ? [city] : undefined,
+        searchQuery: searchQuery.trim() || undefined,
+        hasImages: hasImages || undefined,
+        minReviews,
+        sortType,
+      };
+      const res = await servicesApi.getServicesFilter(filter, { page, size });
+      setServices(res.content);
+      setTotalElements(res.totalElements);
+      setTotalPages(res.totalPages);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Не удалось загрузить услуги";
       setError(msg);
@@ -138,9 +113,7 @@ export function CatalogPage({ onNavigate, initialCategoryName, initialSearchQuer
     selectedCategoryId,
     page,
     size,
-    sortBy,
-    sortDirection,
-    hasAdvancedFilters,
+    sortType,
     priceRange,
     city,
     ratingMin,
@@ -177,7 +150,7 @@ export function CatalogPage({ onNavigate, initialCategoryName, initialSearchQuer
   // Сброс на первую страницу при изменении любого фильтра
   useEffect(() => {
     setPage(0);
-  }, [selectedCategoryId, searchQuery, priceRange[0], priceRange[1], city, ratingMin, hasImages]);
+  }, [selectedCategoryId, searchQuery, minPrice, maxPrice, city, ratingMin, hasImages]);
 
   const handleToggleFavorite = useCallback(async (serviceId: string, isFavorite: boolean) => {
     try {
@@ -210,15 +183,12 @@ export function CatalogPage({ onNavigate, initialCategoryName, initialSearchQuer
 
   const handleSortChange = (value: string) => {
     const opt = SORT_OPTIONS.find((o) => o.label === value);
-    if (opt) {
-      setSortBy(opt.value);
-      setSortDirection(opt.direction);
-    }
+    if (opt) setSortType(opt.value);
     setPage(0);
   };
 
   const currentSortValue =
-    SORT_OPTIONS.find((o) => o.value === sortBy && o.direction === sortDirection)?.label ?? "По дате";
+    SORT_OPTIONS.find((o) => o.value === sortType)?.label ?? "По популярности";
 
   return (
     <div className="min-h-screen bg-[#F9F9F9]">
@@ -355,7 +325,7 @@ export function CatalogPage({ onNavigate, initialCategoryName, initialSearchQuer
                 </SelectTrigger>
                 <SelectContent>
                   {SORT_OPTIONS.map((opt, i) => (
-                    <SelectItem key={`${opt.value}-${opt.direction}-${i}`} value={opt.label}>
+                    <SelectItem key={`${opt.value}-${i}`} value={opt.label}>
                       {opt.label}
                     </SelectItem>
                   ))}

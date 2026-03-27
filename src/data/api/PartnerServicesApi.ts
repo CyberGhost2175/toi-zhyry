@@ -71,6 +71,7 @@ export interface CreateServiceRequest {
   address: string;
   thumbnail?: string;
   imageUrls?: string[];
+  images?: string[];
 }
 
 export interface UpdateServiceRequest {
@@ -84,6 +85,7 @@ export interface UpdateServiceRequest {
   address: string;
   thumbnail?: string;
   imageUrls?: string[];
+  images?: string[];
   isActive?: boolean;
 }
 
@@ -134,10 +136,16 @@ export class PartnerServicesApi {
   }
 
   async createService(data: CreateServiceRequest): Promise<PartnerServiceItem> {
+    const normalizedImages = data.imageUrls ?? data.images ?? [];
+    const payload: CreateServiceRequest = {
+      ...data,
+      imageUrls: normalizedImages,
+      images: normalizedImages,
+    };
     const response = await fetch(`${this.baseUrl}/api/v1/partner/services`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
@@ -152,10 +160,16 @@ export class PartnerServicesApi {
   }
 
   async updateService(serviceId: string, data: UpdateServiceRequest): Promise<PartnerServiceItem> {
+    const normalizedImages = data.imageUrls ?? data.images ?? [];
+    const payload: UpdateServiceRequest = {
+      ...data,
+      imageUrls: normalizedImages,
+      images: normalizedImages,
+    };
     const response = await fetch(`${this.baseUrl}/api/v1/partner/services/${encodeURIComponent(serviceId)}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
