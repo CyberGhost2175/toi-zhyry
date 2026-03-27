@@ -1,6 +1,11 @@
 import { RegisterUserData, LoginUserData, AuthResponse } from '../../domain/entities/User';
+import { handleSessionExpired } from '../../utils/sessionExpired';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+// In development, use relative URLs so the CRA dev server proxies to the backend (avoids CORS).
+const API_BASE_URL =
+  process.env.NODE_ENV === 'development'
+    ? ''
+    : (process.env.REACT_APP_API_URL || 'http://localhost:8080');
 
 export class AuthApi {
     private baseUrl: string;
@@ -71,8 +76,12 @@ export class AuthApi {
         });
 
         if (!response.ok) {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('user');
+            if (response.status === 401 || response.status === 403) {
+                handleSessionExpired();
+            } else {
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('user');
+            }
             return null;
         }
 
@@ -93,10 +102,9 @@ export class AuthApi {
         });
 
         if (!response.ok) {
-            if (response.status === 401) {
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('user');
-                throw new Error('Сессия истекла. Пожалуйста, войдите снова');
+            if (response.status === 401 || response.status === 403) {
+                handleSessionExpired();
+                throw new Error('Вы вышли из аккаунта. Необходимо авторизоваться заново.');
             }
             throw new Error('Не удалось загрузить профиль');
         }

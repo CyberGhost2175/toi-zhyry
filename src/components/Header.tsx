@@ -1,4 +1,5 @@
-import { Search, Menu, User, Heart, LogOut } from "lucide-react";
+import { useState } from "react";
+import { Search, Menu, User, Heart, LogOut, LayoutDashboard, ShoppingCart, Calendar, MessageSquare } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useAuth } from "../contexts/AuthContext";
@@ -10,6 +11,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
 
 interface HeaderProps {
     onNavigate: (page: string) => void;
@@ -18,10 +20,17 @@ interface HeaderProps {
 
 export function Header({ onNavigate, currentPage }: HeaderProps) {
     const { isAuthenticated, user, logout } = useAuth();
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-    const handleLogout = () => {
-        logout();
+    const handleLogout = async () => {
+        await logout();
         onNavigate('home');
+        setMobileMenuOpen(false);
+    };
+
+    const navTo = (page: string) => {
+        onNavigate(page);
+        setMobileMenuOpen(false);
     };
 
     return (
@@ -33,13 +42,13 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                         className="flex items-center gap-2 cursor-pointer"
                         onClick={() => onNavigate('home')}
                     >
-                        <div className="w-10 h-10 bg-gradient-to-br from-[#00AFAE] to-[#FFD700] rounded-xl flex items-center justify-center">
-                            <span className="text-white font-bold">TŽ</span>
+                        <div className="w-10  flex items-center justify-center">
+                            <img src="/site-logo.svg" alt="logo" />
                         </div>
                         <span className="text-[#222222] font-semibold">Toi Zhyry</span>
                     </div>
 
-                    {/* Desktop Navigation */}
+                    {/* Desktop Navigation — у админов только Каталог, у остальных ещё О нас и Для партнёров */}
                     <nav className="hidden md:flex items-center gap-6">
                         <button
                             onClick={() => onNavigate('catalog')}
@@ -49,20 +58,24 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                         >
                             Каталог
                         </button>
-                        <button
-                            onClick={() => onNavigate('home')}
-                            className="text-[#222222] hover:text-[#00AFAE] transition-colors"
-                        >
-                            О нас
-                        </button>
-                        <button
-                            onClick={() => onNavigate('partner-dashboard')}
-                            className={`hover:text-[#00AFAE] transition-colors ${
-                                currentPage === 'partner-dashboard' ? 'text-[#00AFAE]' : 'text-[#222222]'
-                            }`}
-                        >
-                            Для партнёров
-                        </button>
+                        {user?.role?.toUpperCase() !== 'ADMIN' && (
+                            <>
+                                <button
+                                    onClick={() => onNavigate('home')}
+                                    className="text-[#222222] hover:text-[#00AFAE] transition-colors"
+                                >
+                                    О нас
+                                </button>
+                                <button
+                                    onClick={() => onNavigate('partner-dashboard')}
+                                    className={`hover:text-[#00AFAE] transition-colors ${
+                                        currentPage === 'partner-dashboard' ? 'text-[#00AFAE]' : 'text-[#222222]'
+                                    }`}
+                                >
+                                    {user?.role?.toUpperCase() === 'PARTNER' ? 'Личный кабинет' : 'Для партнёров'}
+                                </button>
+                            </>
+                        )}
                     </nav>
 
                     {/* Right Side - Desktop */}
@@ -77,14 +90,43 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                             />
                         </div>
 
+                        {/* Админ-панель — только для роли ADMIN */}
+                        {isAuthenticated && user?.role?.toUpperCase() === 'ADMIN' && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onNavigate('admin-dashboard')}
+                                className={`rounded-full gap-2 ${
+                                    currentPage === 'admin-dashboard'
+                                        ? 'bg-[#00AFAE]/10 text-[#00AFAE]'
+                                        : 'text-[#222222] hover:bg-[#00AFAE]/10 hover:text-[#00AFAE]'
+                                }`}
+                            >
+                                <LayoutDashboard className="w-4 h-4" />
+                                <span className="hidden sm:inline">Админ-панель</span>
+                            </Button>
+                        )}
+
                         {/* Favorites */}
                         <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => onNavigate('client-dashboard')}
+                            onClick={() => onNavigate('favorites')}
                             className="rounded-full"
+                            aria-label="Избранное"
                         >
                             <Heart className="w-5 h-5" />
+                        </Button>
+
+                        {/* Cart */}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onNavigate('cart')}
+                            className="rounded-full"
+                            aria-label="Корзина"
+                        >
+                            <ShoppingCart className="w-5 h-5" />
                         </Button>
 
                         {/* Auth Section */}
@@ -120,7 +162,15 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                                         <User className="mr-2 h-4 w-4" />
                                         <span>Профиль</span>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => onNavigate('client-dashboard')}>
+                                    <DropdownMenuItem onClick={() => onNavigate('client-bookings')}>
+                                        <Calendar className="mr-2 h-4 w-4" />
+                                        <span>Бронирования</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onNavigate('client-reviews')}>
+                                        <MessageSquare className="mr-2 h-4 w-4" />
+                                        <span>Мои отзывы</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onNavigate('favorites')}>
                                         <Heart className="mr-2 h-4 w-4" />
                                         <span>Избранное</span>
                                     </DropdownMenuItem>
@@ -153,11 +203,148 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                     </div>
 
                     {/* Mobile Menu Button */}
-                    <Button variant="ghost" size="icon" className="md:hidden">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="md:hidden"
+                        onClick={() => setMobileMenuOpen(true)}
+                        aria-label="Открыть меню"
+                    >
                         <Menu className="w-6 h-6" />
                     </Button>
                 </div>
             </div>
+
+            {/* Mobile menu (бургер) */}
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                <SheetContent side="right" className="w-[280px] sm:w-[320px] p-0 flex flex-col">
+                    <SheetHeader className="p-4 border-b border-gray-200">
+                        <SheetTitle className="text-left text-[#222222]">Меню</SheetTitle>
+                    </SheetHeader>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        {/* Поиск */}
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Input
+                                type="text"
+                                placeholder="Поиск услуг..."
+                                className="pl-10 rounded-full border-gray-200"
+                            />
+                        </div>
+
+                        {/* Навигация */}
+                        <nav className="flex flex-col gap-1">
+                            <button
+                                onClick={() => navTo('catalog')}
+                                className={`text-left px-4 py-3 rounded-xl transition-colors ${
+                                    currentPage === 'catalog' ? 'bg-[#00AFAE]/10 text-[#00AFAE] font-medium' : 'text-[#222222] hover:bg-gray-100'
+                                }`}
+                            >
+                                Каталог
+                            </button>
+                            {user?.role?.toUpperCase() !== 'ADMIN' && (
+                                <>
+                                    <button
+                                        onClick={() => navTo('home')}
+                                        className="text-left px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
+                                    >
+                                        О нас
+                                    </button>
+                                    <button
+                                        onClick={() => navTo('partner-dashboard')}
+                                        className={`text-left px-4 py-3 rounded-xl transition-colors ${
+                                            currentPage === 'partner-dashboard' ? 'bg-[#00AFAE]/10 text-[#00AFAE] font-medium' : 'text-[#222222] hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        {user?.role?.toUpperCase() === 'PARTNER' ? 'Личный кабинет' : 'Для партнёров'}
+                                    </button>
+                                </>
+                            )}
+                        </nav>
+
+                        {/* Админ-панель (мобильная) */}
+                        {isAuthenticated && user?.role?.toUpperCase() === 'ADMIN' && (
+                            <button
+                                onClick={() => navTo('admin-dashboard')}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                                    currentPage === 'admin-dashboard' ? 'bg-[#00AFAE]/10 text-[#00AFAE] font-medium' : 'text-[#222222] hover:bg-gray-100'
+                                }`}
+                            >
+                                <LayoutDashboard className="w-5 h-5" />
+                                <span>Админ-панель</span>
+                            </button>
+                        )}
+
+                        {/* Избранное */}
+                        <button
+                            onClick={() => navTo('favorites')}
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
+                        >
+                            <Heart className="w-5 h-5" />
+                            <span>Избранное</span>
+                        </button>
+
+                        {/* Корзина */}
+                        <button
+                            onClick={() => navTo('cart')}
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
+                        >
+                            <ShoppingCart className="w-5 h-5" />
+                            <span>Корзина</span>
+                        </button>
+
+                        {/* Аккаунт */}
+                        <div className="pt-4 border-t border-gray-200 space-y-1">
+                            {isAuthenticated ? (
+                                <>
+                                    <div className="px-4 py-2">
+                                        <p className="text-sm font-medium text-[#222222]">
+                                            {user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'Мой аккаунт'}
+                                        </p>
+                                        <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => navTo('client-dashboard')}
+                                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
+                                    >
+                                        <User className="w-5 h-5" />
+                                        <span>Профиль</span>
+                                    </button>
+                                    <button
+                                        onClick={() => navTo('client-bookings')}
+                                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
+                                    >
+                                        <Calendar className="w-5 h-5" />
+                                        <span>Бронирования</span>
+                                    </button>
+                                    <button
+                                        onClick={() => navTo('client-reviews')}
+                                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
+                                    >
+                                        <MessageSquare className="w-5 h-5" />
+                                        <span>Мои отзывы</span>
+                                    </button>
+                                    <button
+                                        onClick={handleLogout}
+                                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 transition-colors"
+                                    >
+                                        <LogOut className="w-5 h-5" />
+                                        <span>Выйти</span>
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    onClick={() => navTo('login')}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#00AFAE] hover:bg-[#00AFAE]/90 text-white font-medium transition-colors"
+                                >
+                                    <User className="w-5 h-5" />
+                                    Войти
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
         </header>
     );
 }

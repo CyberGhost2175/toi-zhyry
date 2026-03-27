@@ -1,284 +1,698 @@
-import { ShoppingBag, Heart, Bell, Settings, Calendar, MapPin, Star } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { ImageWithFallback } from "./ImageWithFallback";
+import { useState, useEffect, useCallback } from 'react';
+import { User, Mail, Phone, MapPin, Calendar, Shield, LogOut, Edit2, Save, X, ArrowLeft, Key, Trash2 } from 'lucide-react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { useAuth } from '../contexts/AuthContext';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from './ui/alert-dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
+import { Textarea } from './ui/textarea';
+import { toast } from 'sonner';
 
-interface ClientDashboardProps {
-  onNavigate: (page: string) => void;
+interface UserProfileProps {
+    onNavigate: (page: string, state?: { serviceId?: string }) => void;
 }
 
-export function ClientDashboard({ onNavigate }: ClientDashboardProps) {
-  const orders = [
-    {
-      id: "#12345",
-      service: "Ресторан «Алатау»",
-      date: "15 декабря 2025",
-      status: "Подтверждено",
-      price: "450 000 ₸",
-      image: "https://images.unsplash.com/photo-1670819917685-f1040e76b9b7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjByZXN0YXVyYW50JTIwaW50ZXJpb3J8ZW58MXx8fHwxNzYxODA2NDQ5fDA&ixlib=rb-4.1.0&q=80&w=1080",
-    },
-    {
-      id: "#12344",
-      service: "Свадебный кортеж",
-      date: "15 декабря 2025",
-      status: "Ожидает оплаты",
-      price: "70 000 ₸",
-      image: "https://images.unsplash.com/photo-1628691193240-be25a90b0eae?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwY2FycyUyMGNvbnZveXxlbnwxfHx8fDE3NjE4OTY5OTJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
-    },
-    {
-      id: "#12343",
-      service: "Тамада Айгерим",
-      date: "10 ноября 2025",
-      status: "Завершено",
-      price: "100 000 ₸",
-      image: "https://images.unsplash.com/photo-1657702776262-0466e88e5e83?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwaG9zdCUyME1DfGVufDF8fHx8MTc2MTkwMTM1OXww&ixlib=rb-4.1.0&q=80&w=1080",
-    },
-  ];
+interface UserData {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    city: string;
+    role: string;
+    emailVerified: boolean;
+    lastLogin: string;
+    createdAt: string;
+}
 
-  const favorites = [
-    {
-      title: "Декор и оформление зала",
-      rating: 4.7,
-      price: "от 100 000 ₸",
-      image: "https://images.unsplash.com/photo-1664530140722-7e3bdbf2b870?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwZGVjb3JhdGlvbiUyMGZsb3dlcnN8ZW58MXx8fHwxNzYxODk2OTkyfDA&ixlib=rb-4.1.0&q=80&w=1080",
-    },
-    {
-      title: "Свадебная фото-видео съёмка",
-      rating: 4.9,
-      price: "от 120 000 ₸",
-      image: "https://images.unsplash.com/photo-1661668724998-fd8c24e1cd1a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwcGhvdG9ncmFwaGVyJTIwY2FtZXJhfGVufDF8fHx8MTc2MTg5Njk5M3ww&ixlib=rb-4.1.0&q=80&w=1080",
-    },
-  ];
+export function UserProfile({ onNavigate }: UserProfileProps) {
+    const { logout } = useAuth();
+    const [userData, setUserData] = useState<UserData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedData, setEditedData] = useState<Partial<UserData>>({});
+    const [isSaving, setIsSaving] = useState(false);
 
-  const notifications = [
-    {
-      title: "Новое сообщение от партнёра",
-      text: "Ресторан «Алатау» подтвердил вашу бронь на 15 декабря",
-      time: "2 часа назад",
-      unread: true,
-    },
-    {
-      title: "Напоминание о мероприятии",
-      text: "До вашего мероприятия осталось 7 дней",
-      time: "1 день назад",
-      unread: true,
-    },
-    {
-      title: "Скидка 15% на декор",
-      text: "Специальное предложение для вас от партнёра",
-      time: "3 дня назад",
-      unread: false,
-    },
-  ];
+    const [passwordCurrent, setPasswordCurrent] = useState('');
+    const [passwordNew, setPasswordNew] = useState('');
+    const [passwordConfirm, setPasswordConfirm] = useState('');
+    const [passwordError, setPasswordError] = useState<string | null>(null);
+    const [passwordSuccess, setPasswordSuccess] = useState(false);
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Подтверждено':
-        return 'bg-green-100 text-green-700';
-      case 'Ожидает оплаты':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'Завершено':
-        return 'bg-gray-100 text-gray-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
-  };
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [deletePassword, setDeletePassword] = useState('');
+    const [deleteReason, setDeleteReason] = useState('');
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  return (
-    <div className="min-h-screen bg-[#F9F9F9]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-[#222222]">Личный кабинет</h1>
-          <Button
-            variant="outline"
-            onClick={() => onNavigate('home')}
-            className="rounded-full"
-          >
-            На главную
-          </Button>
-        </div>
+    useEffect(() => {
+        fetchUserProfile();
+    }, []);
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar */}
-          <aside className="lg:col-span-1">
-            <div className="bg-white rounded-2xl p-6 shadow-sm">
-              {/* User Profile */}
-              <div className="text-center mb-6 pb-6 border-b border-gray-200">
-                <div className="w-20 h-20 bg-gradient-to-br from-[#00AFAE] to-[#FFD700] rounded-full flex items-center justify-center text-white mx-auto mb-3">
-                  <span className="text-2xl">АС</span>
+    const fetchUserProfile = async () => {
+        try {
+            setLoading(true);
+            const token = localStorage.getItem('authToken');
+
+            if (!token) {
+                throw new Error('Токен не найден. Пожалуйста, войдите в систему.');
+            }
+
+            const response = await fetch('/api/v1/users/me', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    throw new Error('Сессия истекла. Пожалуйста, войдите снова.');
+                }
+                throw new Error(`Ошибка: ${response.status}`);
+            }
+
+            const data = await response.json();
+            setUserData(data);
+            setEditedData(data);
+            setError(null);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Произошла ошибка');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLogout = async () => {
+        await logout();
+        onNavigate('home');
+    };
+
+    const handleEdit = () => {
+        setIsEditing(true);
+        setEditedData({
+            email: userData?.email,
+            firstName: userData?.firstName,
+            lastName: userData?.lastName,
+            phone: userData?.phone,
+            city: userData?.city,
+        });
+    };
+
+    const handleCancel = () => {
+        setIsEditing(false);
+        setEditedData(userData || {});
+    };
+
+    const handleSave = async () => {
+        try {
+            setIsSaving(true);
+            const token = localStorage.getItem('authToken');
+            const payload = {
+                firstName: editedData.firstName ?? userData?.firstName ?? '',
+                lastName: editedData.lastName ?? userData?.lastName ?? '',
+                phone: editedData.phone ?? userData?.phone ?? '',
+                city: editedData.city ?? userData?.city ?? '',
+            };
+
+            const response = await fetch('/api/v1/users/me', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.message || 'Не удалось обновить профиль');
+            }
+
+            const updatedData = await response.json();
+            setUserData(updatedData);
+            setEditedData(updatedData);
+            setIsEditing(false);
+            alert('✅ Профиль успешно обновлён!');
+        } catch (err) {
+            alert('❌ ' + (err instanceof Error ? err.message : 'Произошла ошибка при обновлении'));
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleChangePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setPasswordError(null);
+        setPasswordSuccess(false);
+        if (passwordNew !== passwordConfirm) {
+            setPasswordError('Новый пароль и подтверждение не совпадают');
+            return;
+        }
+        if (!passwordNew || passwordNew.length < 8) {
+            setPasswordError('Новый пароль должен быть не менее 8 символов');
+            return;
+        }
+        try {
+            setIsChangingPassword(true);
+            const token = localStorage.getItem('authToken');
+            const response = await fetch('/api/v1/users/me/password', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    currentPassword: passwordCurrent,
+                    newPassword: passwordNew,
+                }),
+            });
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.message || 'Не удалось сменить пароль');
+            }
+            setPasswordSuccess(true);
+            setPasswordCurrent('');
+            setPasswordNew('');
+            setPasswordConfirm('');
+        } catch (err) {
+            setPasswordError(err instanceof Error ? err.message : 'Ошибка смены пароля');
+        } finally {
+            setIsChangingPassword(false);
+        }
+    };
+
+    const openDeleteDialog = () => {
+        setDeletePassword('');
+        setDeleteReason('');
+        setDeleteError(null);
+        setDeleteConfirmOpen(false);
+        setDeleteDialogOpen(true);
+    };
+
+    const goToDeleteConfirm = () => {
+        if (!deletePassword.trim()) {
+            setDeleteError('Введите пароль для подтверждения');
+            return;
+        }
+        setDeleteError(null);
+        setDeleteDialogOpen(false);
+        setDeleteConfirmOpen(true);
+    };
+
+    const handleDeleteProfile = async () => {
+        try {
+            setIsDeleting(true);
+            setDeleteError(null);
+            const token = localStorage.getItem('authToken');
+            const response = await fetch('/api/v1/users/me', {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    password: deletePassword,
+                    reason: deleteReason || undefined,
+                }),
+            });
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.message || 'Не удалось удалить профиль');
+            }
+            setDeleteConfirmOpen(false);
+            await logout();
+            onNavigate('home');
+        } catch (err) {
+            setDeleteError(err instanceof Error ? err.message : 'Ошибка удаления');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleInputChange = (field: keyof UserData, value: string) => {
+        setEditedData(prev => ({
+            ...prev,
+            [field]: value,
+        }));
+    };
+
+    const formatDate = (dateString: string) => {
+        return new Date(dateString).toLocaleString('ru-RU', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#F9F9F9] flex items-center justify-center">
+                <div className="bg-white rounded-2xl shadow-xl p-8">
+                    <div className="animate-spin rounded-full h-16 w-16 border-b-4 mx-auto" style={{ borderColor: '#00AFAE' }}></div>
+                    <p className="mt-4 text-gray-600 text-center">Загрузка профиля...</p>
                 </div>
-                <h3 className="text-[#222222] mb-1">Айжан Сагинова</h3>
-                <p className="text-gray-500">aizan@example.com</p>
-              </div>
-
-              {/* Menu */}
-              <nav className="space-y-2">
-                <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#00AFAE]/10 text-[#00AFAE]">
-                  <ShoppingBag className="w-5 h-5" />
-                  <span>Мои заказы</span>
-                </button>
-                <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-[#F9F9F9] transition-colors">
-                  <Heart className="w-5 h-5" />
-                  <span>Избранное</span>
-                </button>
-                <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-[#F9F9F9] transition-colors">
-                  <Bell className="w-5 h-5" />
-                  <span>Уведомления</span>
-                  <Badge className="ml-auto bg-red-500">3</Badge>
-                </button>
-                <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-[#F9F9F9] transition-colors">
-                  <Settings className="w-5 h-5" />
-                  <span>Настройки</span>
-                </button>
-              </nav>
             </div>
-          </aside>
+        );
+    }
 
-          {/* Main Content */}
-          <main className="lg:col-span-3">
-            <Tabs defaultValue="orders" className="space-y-6">
-              <TabsList className="bg-white p-1 rounded-xl">
-                <TabsTrigger value="orders" className="rounded-lg">Мои заказы</TabsTrigger>
-                <TabsTrigger value="favorites" className="rounded-lg">Избранное</TabsTrigger>
-                <TabsTrigger value="notifications" className="rounded-lg">Уведомления</TabsTrigger>
-              </TabsList>
-
-              {/* Orders Tab */}
-              <TabsContent value="orders">
-                <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                  <div className="p-6 border-b border-gray-200">
-                    <h2 className="text-[#222222]">История заказов</h2>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Услуга</TableHead>
-                          <TableHead>Дата мероприятия</TableHead>
-                          <TableHead>Статус</TableHead>
-                          <TableHead>Сумма</TableHead>
-                          <TableHead></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {orders.map((order) => (
-                          <TableRow key={order.id}>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
-                                  <ImageWithFallback
-                                    src={order.image}
-                                    alt={order.service}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                                <div>
-                                  <p className="text-[#222222]">{order.service}</p>
-                                  <p className="text-gray-500">{order.id}</p>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Calendar className="w-4 h-4 text-gray-400" />
-                                <span>{order.date}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={getStatusColor(order.status)}>
-                                {order.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-[#00AFAE]">{order.price}</TableCell>
-                            <TableCell>
-                              <Button size="sm" variant="outline" className="rounded-full">
-                                Детали
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+    if (error) {
+        return (
+            <div className="min-h-screen bg-[#F9F9F9] flex items-center justify-center">
+                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md">
+                    <div className="text-red-500 text-6xl mb-4 text-center">⚠️</div>
+                    <h2 className="text-2xl font-bold text-[#222222] mb-4 text-center">Ошибка</h2>
+                    <p className="text-gray-600 text-center mb-6">{error}</p>
+                    <div className="flex gap-3">
+                        <Button
+                            onClick={fetchUserProfile}
+                            className="flex-1 h-12 text-white"
+                            style={{ backgroundColor: '#00AFAE' }}
+                        >
+                            Попробовать снова
+                        </Button>
+                        <Button
+                            onClick={() => onNavigate('login')}
+                            variant="outline"
+                            className="flex-1 h-12"
+                        >
+                            Войти
+                        </Button>
+                    </div>
                 </div>
-              </TabsContent>
+            </div>
+        );
+    }
 
-              {/* Favorites Tab */}
-              <TabsContent value="favorites">
-                <div className="bg-white rounded-2xl p-6 shadow-sm">
-                  <h2 className="text-[#222222] mb-6">Избранные услуги</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {favorites.map((item, index) => (
-                      <div key={index} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow">
-                        <div className="aspect-video relative">
-                          <ImageWithFallback
-                            src={item.image}
-                            alt={item.title}
-                            className="w-full h-full object-cover"
-                          />
-                          <button className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center">
-                            <Heart className="w-5 h-5 fill-red-500 text-red-500" />
-                          </button>
-                        </div>
-                        <div className="p-4">
-                          <h3 className="text-[#222222] mb-2">{item.title}</h3>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1">
-                              <Star className="w-4 h-4 fill-[#FFD700] text-[#FFD700]" />
-                              <span>{item.rating}</span>
+    if (!userData) return null;
+
+    return (
+        <div className="min-h-screen bg-[#F9F9F9] py-8 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-5xl mx-auto">
+                {/* Back Button */}
+                <Button
+                    variant="ghost"
+                    onClick={() => onNavigate('home')}
+                    className="mb-6"
+                >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    На главную
+                </Button>
+
+                {/* Профиль */}
+                <>
+                {/* Header */}
+                <div className="bg-white rounded-t-2xl shadow-sm p-8 border-b-4" style={{ borderColor: '#00AFAE' }}>
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl" style={{ background: 'linear-gradient(135deg, #00AFAE 0%, #FFD700 100%)' }}>
+                                {[userData.firstName?.[0], userData.lastName?.[0]].filter(Boolean).join('').toUpperCase() || userData.email?.[0]?.toUpperCase() || 'U'}
                             </div>
-                            <span className="text-[#00AFAE]">{item.price}</span>
-                          </div>
-                          <Button 
-                            className="w-full mt-4 bg-[#00AFAE] hover:bg-[#00AFAE]/90 text-white rounded-full"
-                            onClick={() => onNavigate('service-detail')}
-                          >
-                            Подробнее
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </TabsContent>
-
-              {/* Notifications Tab */}
-              <TabsContent value="notifications">
-                <div className="bg-white rounded-2xl p-6 shadow-sm">
-                  <h2 className="text-[#222222] mb-6">Уведомления</h2>
-                  <div className="space-y-4">
-                    {notifications.map((notification, index) => (
-                      <div
-                        key={index}
-                        className={`p-4 rounded-xl border ${
-                          notification.unread
-                            ? 'bg-[#00AFAE]/5 border-[#00AFAE]/20'
-                            : 'bg-white border-gray-200'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="text-[#222222]">{notification.title}</h4>
-                              {notification.unread && (
-                                <div className="w-2 h-2 bg-[#00AFAE] rounded-full" />
-                              )}
+                            <div>
+                                <h1 className="text-3xl font-bold text-[#222222]">
+                                    {[userData.firstName, userData.lastName].filter(Boolean).join(' ') || userData.email || 'Профиль'}
+                                </h1>
+                                <p className="text-gray-500 flex items-center mt-1">
+                                    <Shield className="w-4 h-4 mr-2" />
+                                    {userData.role}
+                                </p>
                             </div>
-                            <p className="text-gray-600 mb-2">{notification.text}</p>
-                            <p className="text-gray-400">{notification.time}</p>
-                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                        <div className="flex flex-wrap gap-3 justify-center md:justify-end">
+                            {!isEditing ? (
+                                <>
+                                    <Button
+                                        onClick={handleEdit}
+                                        className="text-white h-12 px-6"
+                                        style={{ backgroundColor: '#00AFAE' }}
+                                    >
+                                        <Edit2 className="w-5 h-5 mr-2" />
+                                        Редактировать
+                                    </Button>
+                                    <Button
+                                        onClick={handleLogout}
+                                        variant="outline"
+                                        className="h-12 px-6 border-red-500 text-red-500 hover:bg-red-50"
+                                    >
+                                        <LogOut className="w-5 h-5 mr-2" />
+                                        Выйти
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <Button
+                                        onClick={handleSave}
+                                        disabled={isSaving}
+                                        className="text-white h-12 px-6 bg-green-600 hover:bg-green-700"
+                                    >
+                                        <Save className="w-5 h-5 mr-2" />
+                                        {isSaving ? 'Сохранение...' : 'Сохранить'}
+                                    </Button>
+                                    <Button
+                                        onClick={handleCancel}
+                                        disabled={isSaving}
+                                        variant="outline"
+                                        className="h-12 px-6"
+                                    >
+                                        <X className="w-5 h-5 mr-2" />
+                                        Отмена
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {userData.emailVerified && (
+                        <div className="inline-flex items-center bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-medium mt-4">
+                            <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                            Email подтвержден
+                        </div>
+                    )}
                 </div>
-              </TabsContent>
-            </Tabs>
-          </main>
+
+                {/* Main Content */}
+                <div className="bg-white rounded-b-2xl shadow-sm p-8">
+                    <h2 className="text-2xl font-bold text-[#222222] mb-6">Личная информация</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Email (только для просмотра, API не позволяет менять через PUT) */}
+                        <div className="space-y-2">
+                            <Label className="flex items-center text-sm font-medium text-gray-700">
+                                <Mail className="w-5 h-5 mr-2" style={{ color: '#00AFAE' }} />
+                                Email
+                            </Label>
+                            <div className="text-[#222222] bg-[#F9F9F9] px-4 py-3 rounded-xl h-12 flex items-center">
+                                {userData.email}
+                            </div>
+                        </div>
+
+                        {/* Phone */}
+                        <div className="space-y-2">
+                            <Label className="flex items-center text-sm font-medium text-gray-700">
+                                <Phone className="w-5 h-5 mr-2" style={{ color: '#00AFAE' }} />
+                                Телефон
+                            </Label>
+                            {isEditing ? (
+                                <Input
+                                    type="tel"
+                                    value={editedData.phone || ''}
+                                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                                    className="h-12"
+                                    placeholder="+7 (___) ___-__-__"
+                                />
+                            ) : (
+                                <div className="text-[#222222] bg-[#F9F9F9] px-4 py-3 rounded-xl h-12 flex items-center">
+                                    {userData.phone}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* First Name */}
+                        <div className="space-y-2">
+                            <Label className="flex items-center text-sm font-medium text-gray-700">
+                                <User className="w-5 h-5 mr-2" style={{ color: '#00AFAE' }} />
+                                Имя
+                            </Label>
+                            {isEditing ? (
+                                <Input
+                                    type="text"
+                                    value={editedData.firstName || ''}
+                                    onChange={(e) => handleInputChange('firstName', e.target.value)}
+                                    className="h-12"
+                                    placeholder="Иван"
+                                />
+                            ) : (
+                                <div className="text-[#222222] bg-[#F9F9F9] px-4 py-3 rounded-xl h-12 flex items-center">
+                                    {userData.firstName}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Last Name */}
+                        <div className="space-y-2">
+                            <Label className="flex items-center text-sm font-medium text-gray-700">
+                                <User className="w-5 h-5 mr-2" style={{ color: '#00AFAE' }} />
+                                Фамилия
+                            </Label>
+                            {isEditing ? (
+                                <Input
+                                    type="text"
+                                    value={editedData.lastName || ''}
+                                    onChange={(e) => handleInputChange('lastName', e.target.value)}
+                                    className="h-12"
+                                    placeholder="Иванов"
+                                />
+                            ) : (
+                                <div className="text-[#222222] bg-[#F9F9F9] px-4 py-3 rounded-xl h-12 flex items-center">
+                                    {userData.lastName}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* City */}
+                        <div className="space-y-2">
+                            <Label className="flex items-center text-sm font-medium text-gray-700">
+                                <MapPin className="w-5 h-5 mr-2" style={{ color: '#00AFAE' }} />
+                                Город
+                            </Label>
+                            {isEditing ? (
+                                <Input
+                                    type="text"
+                                    value={editedData.city || ''}
+                                    onChange={(e) => handleInputChange('city', e.target.value)}
+                                    className="h-12"
+                                    placeholder="Алматы"
+                                />
+                            ) : (
+                                <div className="text-[#222222] bg-[#F9F9F9] px-4 py-3 rounded-xl h-12 flex items-center">
+                                    {userData.city}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* User ID */}
+                        <div className="space-y-2">
+                            <Label className="flex items-center text-sm font-medium text-gray-700">
+                                <Shield className="w-5 h-5 mr-2" style={{ color: '#00AFAE' }} />
+                                ID пользователя
+                            </Label>
+                            <div className="text-[#222222] bg-[#F9F9F9] px-4 py-3 rounded-xl h-12 flex items-center font-mono text-sm overflow-x-auto">
+                                {userData.id}
+                            </div>
+                        </div>
+
+                        {/* Last Login */}
+                        <div className="space-y-2">
+                            <Label className="flex items-center text-sm font-medium text-gray-700">
+                                <Calendar className="w-5 h-5 mr-2" style={{ color: '#00AFAE' }} />
+                                Последний вход
+                            </Label>
+                            <div className="text-[#222222] bg-[#F9F9F9] px-4 py-3 rounded-xl h-12 flex items-center">
+                                {userData.lastLogin ? formatDate(userData.lastLogin) : '—'}
+                            </div>
+                        </div>
+
+                        {/* Created At */}
+                        <div className="space-y-2">
+                            <Label className="flex items-center text-sm font-medium text-gray-700">
+                                <Calendar className="w-5 h-5 mr-2" style={{ color: '#00AFAE' }} />
+                                Дата регистрации
+                            </Label>
+                            <div className="text-[#222222] bg-[#F9F9F9] px-4 py-3 rounded-xl h-12 flex items-center">
+                                {userData.createdAt ? formatDate(userData.createdAt) : '—'}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Statistics Section */}
+                    <div className="mt-10 pt-8 border-t-2 border-gray-200">
+                        <h2 className="text-xl font-bold text-[#222222] mb-6">Статистика аккаунта</h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="rounded-xl p-6 text-white shadow-lg" style={{ background: 'linear-gradient(135deg, #00AFAE 0%, #00AFAE 100%)' }}>
+                                <p className="text-sm opacity-90 font-medium">Дней с нами</p>
+                                <p className="text-4xl font-bold mt-2">
+                                    {Math.floor((Date.now() - new Date(userData.createdAt).getTime()) / (1000 * 60 * 60 * 24))}
+                                </p>
+                            </div>
+                            <div className="rounded-xl p-6 text-white shadow-lg bg-green-500">
+                                <p className="text-sm opacity-90 font-medium">Статус верификации</p>
+                                <p className="text-4xl font-bold mt-2">
+                                    {userData.emailVerified ? '✓' : '?'}
+                                </p>
+                            </div>
+                            <div className="rounded-xl p-6 text-white shadow-lg" style={{ background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)' }}>
+                                <p className="text-sm opacity-90 font-medium">Роль</p>
+                                <p className="text-2xl font-bold mt-2 uppercase">
+                                    {userData.role}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Сменить пароль */}
+                    <div className="mt-10 pt-8 border-t-2 border-gray-200">
+                        <h2 className="text-xl font-bold text-[#222222] mb-4 flex items-center gap-2">
+                            <Key className="w-5 h-5" style={{ color: '#00AFAE' }} />
+                            Сменить пароль
+                        </h2>
+                        <form onSubmit={handleChangePassword} className="max-w-md space-y-4">
+                            <div className="space-y-2">
+                                <Label>Текущий пароль</Label>
+                                <Input
+                                    type="password"
+                                    value={passwordCurrent}
+                                    onChange={(e) => setPasswordCurrent(e.target.value)}
+                                    placeholder="Введите текущий пароль"
+                                    className="h-12"
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Новый пароль</Label>
+                                <Input
+                                    type="password"
+                                    value={passwordNew}
+                                    onChange={(e) => setPasswordNew(e.target.value)}
+                                    placeholder="Не менее 8 символов"
+                                    className="h-12"
+                                    minLength={8}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Подтвердите новый пароль</Label>
+                                <Input
+                                    type="password"
+                                    value={passwordConfirm}
+                                    onChange={(e) => setPasswordConfirm(e.target.value)}
+                                    placeholder="Повторите новый пароль"
+                                    className="h-12"
+                                />
+                            </div>
+                            {passwordError && (
+                                <p className="text-sm text-red-600">{passwordError}</p>
+                            )}
+                            {passwordSuccess && (
+                                <p className="text-sm text-green-600">Пароль успешно изменён.</p>
+                            )}
+                            <Button
+                                type="submit"
+                                disabled={isChangingPassword}
+                                className="h-12 px-6 text-white"
+                                style={{ backgroundColor: '#00AFAE' }}
+                            >
+                                {isChangingPassword ? 'Сохранение...' : 'Сменить пароль'}
+                            </Button>
+                        </form>
+                    </div>
+
+                    {/* Удалить профиль */}
+                    <div className="mt-10 pt-8 border-t-2 border-red-100">
+                        <h2 className="text-xl font-bold text-[#222222] mb-4 flex items-center gap-2">
+                            <Trash2 className="w-5 h-5 text-red-500" />
+                            Удалить профиль
+                        </h2>
+                        <p className="text-gray-600 text-sm mb-4">
+                            Удаление аккаунта необратимо (soft delete). Вам потребуется ввести пароль и подтвердить действие.
+                        </p>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="border-red-500 text-red-500 hover:bg-red-50"
+                            onClick={openDeleteDialog}
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Удалить профиль
+                        </Button>
+                    </div>
+                </div>
+                </>
+            </div>
+
+            {/* Диалог: ввод пароля и причины для удаления */}
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Удаление профиля</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-gray-600">
+                        Введите пароль и при желании причину удаления. Затем вас попросят подтвердить действие.
+                    </p>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label>Пароль *</Label>
+                            <Input
+                                type="password"
+                                value={deletePassword}
+                                onChange={(e) => setDeletePassword(e.target.value)}
+                                placeholder="Ваш текущий пароль"
+                                className="h-12"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Причина (необязательно)</Label>
+                            <Textarea
+                                value={deleteReason}
+                                onChange={(e) => setDeleteReason(e.target.value)}
+                                placeholder="Например: больше не пользуюсь сервисом"
+                                rows={3}
+                            />
+                        </div>
+                        {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                            Отмена
+                        </Button>
+                        <Button
+                            className="bg-amber-600 hover:bg-amber-700 text-white"
+                            onClick={goToDeleteConfirm}
+                        >
+                            Продолжить
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Подтверждение: точно удалить? */}
+            <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Точно удалить профиль?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Это действие нельзя отменить. Ваш аккаунт будет удалён (soft delete). Вы уверены?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Отмена</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(e) => {
+                                e.preventDefault();
+                                handleDeleteProfile();
+                            }}
+                            disabled={isDeleting}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            {isDeleting ? 'Удаление...' : 'Да, удалить'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
-      </div>
-    </div>
-  );
+    );
 }

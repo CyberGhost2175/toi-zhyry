@@ -6,6 +6,7 @@ import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
 import { diContainer } from '../../di/DIContainer';
 import { useAuth } from '../../contexts/AuthContext';
+import { decodeJwtPayload } from '../../utils/jwt';
 
 interface LoginPageProps {
     onNavigate: (page: string) => void;
@@ -35,13 +36,29 @@ export function LoginPage({ onNavigate }: LoginPageProps) {
                 password: formData.password,
             });
 
-            // Сохраняем данные авторизации через AuthContext
+            // Сохраняем данные авторизации: бэкенд возвращает только token, роль берём из JWT
             if (response.token) {
-                const user = {
-                    email: formData.email,
-                    firstName: '',
-                    lastName: '',
-                };
+                const payload = decodeJwtPayload(response.token);
+                const role = response.user?.role ?? (response as { role?: string }).role ?? payload?.role;
+                const email = response.user?.email ?? payload?.email ?? formData.email;
+                const id = response.user?.id ?? payload?.sub;
+                const user = response.user
+                    ? {
+                        email: response.user.email ?? email,
+                        firstName: response.user.firstName ?? '',
+                        lastName: response.user.lastName ?? '',
+                        role,
+                        id: response.user.id ?? id,
+                        phone: response.user.phone,
+                        city: response.user.city,
+                    }
+                    : {
+                        email,
+                        firstName: '',
+                        lastName: '',
+                        role,
+                        id: id as string | undefined,
+                    };
                 login(response.token, user);
             }
 

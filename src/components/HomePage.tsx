@@ -1,15 +1,34 @@
+import { useEffect, useMemo, useState } from "react";
 import { Search, Utensils, Car, Mic, Palette, Camera, ChevronRight } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ServiceCard } from "./ServiceCard";
 import { KazakhPattern } from "./KazakhPattern";
-import { Avatar } from "./ui/avatar";
+import { ServicesCatalogApi } from "../data/api/ServicesCatalogApi";
+import type { CatalogService } from "../domain/entities/Service";
+import { ReviewsApi, type Review } from "../data/api/ReviewsApi";
+import { useAuth } from "../contexts/AuthContext";
 
 interface HomePageProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (
+    page: string,
+    state?: { categoryName?: string; searchQuery?: string; serviceId?: string }
+  ) => void;
 }
 
 export function HomePage({ onNavigate }: HomePageProps) {
+  const { user } = useAuth();
+  const [heroSearch, setHeroSearch] = useState("");
+  /** Категория, выбранная подсказкой (при ручном вводе сбрасывается) */
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
+  const [popularServices, setPopularServices] = useState<CatalogService[]>([]);
+  const [popularLoading, setPopularLoading] = useState(true);
+  const [homeReviews, setHomeReviews] = useState<Review[]>([]);
+  const [homeReviewsLoading, setHomeReviewsLoading] = useState(false);
+
+  const servicesApi = useMemo(() => new ServicesCatalogApi(), []);
+  const reviewsApi = useMemo(() => new ReviewsApi(), []);
+
   const categories = [
     { name: "Рестораны", icon: Utensils, color: "#00AFAE" },
     { name: "Кортежи", icon: Car, color: "#FFD700" },
@@ -18,76 +37,62 @@ export function HomePage({ onNavigate }: HomePageProps) {
     { name: "Фото-видео", icon: Camera, color: "#00AFAE" },
   ];
 
-  const popularServices = [
-    {
-      title: "Ресторан «Алатау» для свадебных торжеств",
-      image: "https://images.unsplash.com/photo-1670819917685-f1040e76b9b7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjByZXN0YXVyYW50JTIwaW50ZXJpb3J8ZW58MXx8fHwxNzYxODA2NDQ5fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      rating: 4.8,
-      reviews: 127,
-      price: "от 15 000 ₸",
-    },
-    {
-      title: "Свадебный кортеж премиум класса",
-      image: "https://images.unsplash.com/photo-1628691193240-be25a90b0eae?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwY2FycyUyMGNvbnZveXxlbnwxfHx8fDE3NjE4OTY5OTJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      rating: 4.9,
-      reviews: 89,
-      price: "от 50 000 ₸",
-    },
-    {
-      title: "Профессиональная тамада Айгерим",
-      image: "https://images.unsplash.com/photo-1657702776262-0466e88e5e83?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwaG9zdCUyME1DfGVufDF8fHx8MTc2MTkwMTM1OXww&ixlib=rb-4.1.0&q=80&w=1080",
-      rating: 5.0,
-      reviews: 203,
-      price: "от 80 000 ₸",
-    },
-    {
-      title: "Декор и оформление банкетного зала",
-      image: "https://images.unsplash.com/photo-1664530140722-7e3bdbf2b870?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwZGVjb3JhdGlvbiUyMGZsb3dlcnN8ZW58MXx8fHwxNzYxODk2OTkyfDA&ixlib=rb-4.1.0&q=80&w=1080",
-      rating: 4.7,
-      reviews: 156,
-      price: "от 100 000 ₸",
-    },
-    {
-      title: "Свадебная фото-видео съёмка",
-      image: "https://images.unsplash.com/photo-1661668724998-fd8c24e1cd1a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwcGhvdG9ncmFwaGVyJTIwY2FtZXJhfGVufDF8fHx8MTc2MTg5Njk5M3ww&ixlib=rb-4.1.0&q=80&w=1080",
-      rating: 4.9,
-      reviews: 178,
-      price: "от 120 000 ₸",
-    },
-    {
-      title: "Организация банкета «под ключ»",
-      image: "https://images.unsplash.com/photo-1758810411514-1cffb1420a4b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxldmVudCUyMGNlbGVicmF0aW9uJTIwcGFydHl8ZW58MXx8fHwxNzYxOTAxMzYxfDA&ixlib=rb-4.1.0&q=80&w=1080",
-      rating: 4.8,
-      reviews: 94,
-      price: "от 200 000 ₸",
-    },
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setPopularLoading(true);
+      try {
+        const res = await servicesApi.getServices({
+          page: 0,
+          size: 6,
+          sortBy: "rating",
+          sortDirection: "DESC",
+        });
+        if (!cancelled) setPopularServices(res.content || []);
+      } catch (_) {
+        if (!cancelled) setPopularServices([]);
+      } finally {
+        if (!cancelled) setPopularLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [servicesApi]);
 
-  const testimonials = [
-    {
-      name: "Айжан Сагинова",
-      text: "Организовали свадьбу через Toi Zhyry — все прошло идеально! Очень удобный поиск и бронирование.",
-      rating: 5,
-      avatar: "AS",
-    },
-    {
-      name: "Нурлан Ибрагимов",
-      text: "Отличная платформа для поиска услуг. Нашли ресторан и тамаду за один вечер. Рекомендую!",
-      rating: 5,
-      avatar: "НИ",
-    },
-    {
-      name: "Гульнара Абдуллаева",
-      text: "Спасибо за помощь в организации юбилея! Все партнёры профессиональные, цены прозрачные.",
-      rating: 5,
-      avatar: "ГА",
-    },
-  ];
+  useEffect(() => {
+    if (popularServices.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      setHomeReviewsLoading(true);
+      try {
+        const topServices = popularServices.slice(0, 6);
+        const results = await Promise.allSettled(
+          topServices.map((s) => reviewsApi.getServiceReviews(s.id, { page: 0, size: 1 }))
+        );
+        const extracted: Review[] = [];
+        for (const r of results) {
+          if (r.status === "fulfilled") {
+            const first = (r.value.content || [])[0];
+            if (first) extracted.push(first);
+          }
+        }
+        if (!cancelled) setHomeReviews(extracted.slice(0, 3));
+      } catch (_) {
+        if (!cancelled) setHomeReviews([]);
+      } finally {
+        if (!cancelled) setHomeReviewsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [popularServices, reviewsApi]);
 
   return (
     <div className="min-h-screen bg-[#F9F9F9]">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-[#00AFAE] to-[#00AFAE]/80 text-white overflow-hidden">
+      <section className="relative bg-gradient-to-br from-[#165383] to-[#165383]/80 text-white overflow-hidden">
         <KazakhPattern className="absolute inset-0 w-full h-full text-white" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
@@ -106,24 +111,39 @@ export function HomePage({ onNavigate }: HomePageProps) {
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
                     type="text"
-                    placeholder="Что вы ищете?"
-                    className="pl-12 h-12 border-gray-200 rounded-xl"
+                    placeholder="Название услуги или категория (рестораны, тамады...)"
+                    className="pl-12 h-12 border-gray-200 rounded-xl text-[#222222]"
+                    value={heroSearch}
+                    onChange={(e) => {
+                      setHeroSearch(e.target.value);
+                      setSelectedCategoryName(null);
+                    }}
                   />
                 </div>
-                <Button 
-                  className="bg-[#00AFAE] hover:bg-[#00AFAE]/90 text-white h-12 px-8 rounded-xl"
-                  onClick={() => onNavigate('catalog')}
+                <Button
+                  className="bg-[#165383] hover:bg-[#00AFAE]/90 text-white h-12 px-8 rounded-xl"
+                  onClick={() =>
+                    onNavigate("catalog", {
+                      searchQuery: heroSearch.trim() || undefined,
+                      categoryName: selectedCategoryName || undefined,
+                    })
+                  }
                 >
                   Найти
                 </Button>
               </div>
 
-              {/* Quick Categories */}
-              <div className="flex flex-wrap gap-2 mt-4">
+              {/* Подсказки: подставляют текст и задают категорию для фильтра в каталоге */}
+              <p className="text-sm text-gray-500 mt-2 mb-1">Поиск по ключевым словам или выберите категорию:</p>
+              <div className="flex flex-wrap gap-2 mt-1">
                 {categories.map((cat) => (
                   <button
                     key={cat.name}
-                    onClick={() => onNavigate('catalog')}
+                    type="button"
+                    onClick={() => {
+                      setHeroSearch(cat.name);
+                      setSelectedCategoryName(cat.name);
+                    }}
                     className="px-4 py-2 bg-[#F9F9F9] text-[#222222] rounded-full hover:bg-[#00AFAE] hover:text-white transition-colors"
                   >
                     {cat.name}
@@ -145,7 +165,8 @@ export function HomePage({ onNavigate }: HomePageProps) {
             return (
               <button
                 key={category.name}
-                onClick={() => onNavigate('catalog')}
+                type="button"
+                onClick={() => onNavigate("catalog", { categoryName: category.name })}
                 className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 group"
               >
                 <div
@@ -176,13 +197,19 @@ export function HomePage({ onNavigate }: HomePageProps) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {popularServices.map((service, index) => (
-            <ServiceCard
-              key={index}
-              {...service}
-              onNavigate={() => onNavigate('service-detail')}
-            />
-          ))}
+          {popularLoading ? (
+            <div className="col-span-full text-center text-gray-500 py-10">Загрузка услуг...</div>
+          ) : popularServices.length === 0 ? (
+            <div className="col-span-full text-center text-gray-500 py-10">Нет услуг для отображения.</div>
+          ) : (
+            popularServices.map((service) => (
+              <ServiceCard
+                key={service.id}
+                service={service}
+                onNavigate={(id) => onNavigate("service-detail", { serviceId: id })}
+              />
+            ))
+          )}
         </div>
       </section>
 
@@ -191,26 +218,37 @@ export function HomePage({ onNavigate }: HomePageProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-[#222222] text-center mb-12">Отзывы клиентов</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <div key={index} className="bg-[#F9F9F9] p-6 rounded-2xl">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#00AFAE] to-[#FFD700] rounded-full flex items-center justify-center text-white">
-                    {testimonial.avatar}
-                  </div>
-                  <div>
-                    <h4 className="text-[#222222]">{testimonial.name}</h4>
-                    <div className="flex gap-1">
-                      {[...Array(testimonial.rating)].map((_, i) => (
-                        <span key={i} className="text-[#FFD700]">★</span>
-                      ))}
+          {homeReviewsLoading ? (
+            <div className="text-center text-gray-500 py-8">Загрузка отзывов...</div>
+          ) : homeReviews.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">Пока нет отзывов для отображения.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {homeReviews.map((review) => (
+                <div key={review.id} className="bg-[#F9F9F9] p-6 rounded-2xl">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-[#00AFAE] to-[#FFD700] rounded-full flex items-center justify-center text-white">
+                      {(review.userFullName || "U")
+                        .split(" ")
+                        .map((p) => p[0])
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase()}
+                    </div>
+                    <div>
+                      <h4 className="text-[#222222]">{review.userFullName || "Пользователь"}</h4>
+                      <div className="flex gap-1">
+                        {[...Array(Math.max(0, Math.min(5, Number(review.rating) || 0)))].map((_, i) => (
+                          <span key={i} className="text-[#FFD700]">★</span>
+                        ))}
+                      </div>
                     </div>
                   </div>
+                  <p className="text-gray-600 line-clamp-4 whitespace-pre-wrap">{review.comment || "—"}</p>
                 </div>
-                <p className="text-gray-600">{testimonial.text}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -228,7 +266,9 @@ export function HomePage({ onNavigate }: HomePageProps) {
               className="bg-white text-[#00AFAE] hover:bg-white/90 rounded-full px-8"
               onClick={() => onNavigate('partner-dashboard')}
             >
-              Зарегистрироваться как партнёр
+              {user?.role?.toUpperCase() === "PARTNER" || user?.role?.toUpperCase() === "ADMIN"
+                ? "Личный кабинет"
+                : "Зарегистрироваться как партнёр"}
             </Button>
           </div>
         </div>

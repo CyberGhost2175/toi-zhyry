@@ -1,4 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { decodeJwtPayload } from '../utils/jwt';
+import { getSessionExpiredEventName } from '../utils/sessionExpired';
+
+const SESSION_EXPIRED_MESSAGE = 'Вы вышли из аккаунта. Необходимо авторизоваться заново.';
 
 interface User {
     id?: string;
@@ -15,8 +19,11 @@ interface AuthContextType {
     user: User | null;
     token: string | null;
     login: (token: string, user: User) => void;
-    logout: () => void;
+    logout: () => Promise<void>;
     checkAuth: () => boolean;
+    /** Сообщение при истечении сессии (403/401) — показать и перейти на логин */
+    sessionExpiredMessage: string | null;
+    clearSessionExpiredMessage: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,31 +32,117 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
+    const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string | null>(null);
 
-    // Проверка авторизации при загрузке
+    const logout = useCallback(async () => {
+        const currentToken = token ?? localStorage.getItem('authToken');
+        const apiBase = process.env.NODE_ENV === 'development' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8080');
+        if (currentToken) {
+            try {
+                await fetch(`${apiBase}/api/v1/auth/logout`, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${currentToken}` },
+                });
+            } catch (_) {}
+        }
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        setToken(null);
+        setUser(null);
+        setIsAuthenticated(false);
+    }, [token]);
+
+    const clearSessionExpiredMessage = useCallback(() => setSessionExpiredMessage(null), []);
+
     useEffect(() => {
-        checkAuth();
+        const onSessionExpired = () => {
+            setSessionExpiredMessage(SESSION_EXPIRED_MESSAGE);
+            setToken(null);
+            setUser(null);
+            setIsAuthenticated(false);
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+        };
+        window.addEventListener(getSessionExpiredEventName(), onSessionExpired);
+        return () => window.removeEventListener(getSessionExpiredEventName(), onSessionExpired);
     }, []);
 
-    const checkAuth = (): boolean => {
+    const checkAuth = useCallback((): boolean => {
         const storedToken = localStorage.getItem('authToken');
         const storedUser = localStorage.getItem('user');
 
-        if (storedToken && storedUser) {
-            try {
-                const parsedUser = JSON.parse(storedUser);
-                setToken(storedToken);
-                setUser(parsedUser);
-                setIsAuthenticated(true);
-                return true;
-            } catch (error) {
-                console.error('Error parsing user data:', error);
-                logout();
-                return false;
+        if (!storedToken) return false;
+
+        // Есть токен: восстанавливаем user из localStorage или из payload JWT (бэкенд отдаёт только token)
+        try {
+            let parsedUser: User | null = null;
+            if (storedUser) {
+                parsedUser = JSON.parse(storedUser);
             }
+            const payload = decodeJwtPayload(storedToken);
+            const roleFromToken = payload?.role;
+            const emailFromToken = payload?.email;
+            const idFromToken = payload?.sub;
+            if (!parsedUser || parsedUser.role === undefined) {
+                parsedUser = {
+                    email: parsedUser?.email ?? emailFromToken ?? '',
+                    firstName: parsedUser?.firstName ?? '',
+                    lastName: parsedUser?.lastName ?? '',
+                    role: parsedUser?.role ?? roleFromToken,
+                    id: parsedUser?.id ?? idFromToken,
+                    phone: parsedUser?.phone,
+                    city: parsedUser?.city,
+                };
+                try {
+                    localStorage.setItem('user', JSON.stringify(parsedUser));
+                } catch (_) {}
+            }
+            setToken(storedToken);
+            setUser(parsedUser);
+            setIsAuthenticated(true);
+            return true;
+        } catch (error) {
+            console.error('Error parsing user data:', error);
+            logout();
+            return false;
         }
-        return false;
-    };
+    }, [logout]);
+
+    // При загрузке восстанавливаем сессию из localStorage
+    useEffect(() => {
+        checkAuth();
+    }, [checkAuth]);
+
+    // При каждой загрузке с активной сессией запрашиваем актуальные данные пользователя с бэкенда
+    // (роль могла измениться в админ-панели — тогда UI обновится после перезагрузки страницы)
+    useEffect(() => {
+        if (!isAuthenticated || !token || !user) return;
+
+        const apiBase = process.env.NODE_ENV === 'development' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8080');
+        fetch(`${apiBase}/api/v1/auth/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((res) => {
+                if (!res.ok) return null;
+                return res.json();
+            })
+            .then((data: { user?: User & { role?: string }; role?: string; email?: string; firstName?: string; lastName?: string } | null) => {
+                if (!data) return;
+                const role = data.user?.role ?? data.role;
+                const updatedUser: User = {
+                    ...user,
+                    role: role ?? user.role,
+                    email: data.user?.email ?? data.email ?? user.email,
+                    firstName: data.user?.firstName ?? data.firstName ?? user.firstName,
+                    lastName: data.user?.lastName ?? data.lastName ?? user.lastName,
+                };
+                setUser(updatedUser);
+                try {
+                    localStorage.setItem('user', JSON.stringify(updatedUser));
+                } catch (_) {}
+            })
+            .catch(() => {});
+    }, [isAuthenticated, token]);
 
     const login = (newToken: string, newUser: User) => {
         localStorage.setItem('authToken', newToken);
@@ -59,16 +152,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAuthenticated(true);
     };
 
-    const logout = () => {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
-        setToken(null);
-        setUser(null);
-        setIsAuthenticated(false);
-    };
-
     return (
-        <AuthContext.Provider value={{ isAuthenticated, user, token, login, logout, checkAuth }}>
+        <AuthContext.Provider value={{ isAuthenticated, user, token, login, logout, checkAuth, sessionExpiredMessage, clearSessionExpiredMessage }}>
             {children}
         </AuthContext.Provider>
     );
