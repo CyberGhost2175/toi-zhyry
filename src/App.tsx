@@ -11,6 +11,7 @@ import { BookingsListPage } from "./components/bookings/BookingsListPage";
 import { BookingsHistoryPage } from "./components/bookings/BookingsHistoryPage";
 import { BookingDetailPage } from "./components/bookings/BookingDetailPage";
 import { MyReviewsPage } from "./components/reviews/MyReviewsPage";
+import { NotificationsPage } from "./components/notifications/NotificationsPage";
 import { PartnerDashboard } from "./components/PartnerDashboard";
 import { BecomePartnerPage } from "./components/BecomePartnerPage";
 import { AdminDashboard } from "./components/AdminDashboard";
@@ -54,6 +55,7 @@ function getCurrentPage(pathname: string): Page {
     if (pathname.startsWith("/services")) return "service-detail";
     if (pathname.startsWith("/profile/bookings")) return "client-bookings";
     if (pathname.startsWith("/profile/reviews")) return "client-reviews";
+    if (pathname.startsWith("/profile/notifications")) return "client-dashboard";
     if (pathname.startsWith("/profile")) return "client-dashboard";
     if (pathname.startsWith("/partner/dashboard")) return "partner-dashboard";
     if (pathname.startsWith("/admin/dashboard")) return "admin-dashboard";
@@ -167,6 +169,7 @@ function AppContent() {
                         <Route path=":bookingId" element={<BookingDetailPage />} />
                     </Route>
                     <Route path="reviews" element={<MyReviewsPage />} />
+                    <Route path="notifications" element={<NotificationsPage />} />
                 </Route>
                 <Route path="/favorites" element={<FavoritesPage onNavigate={handleNavigate} />} />
                 <Route path="/cart" element={<CartPage onNavigate={handleNavigate} />} />

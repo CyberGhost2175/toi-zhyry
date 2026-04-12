@@ -1,5 +1,6 @@
 import { RegisterUserData, LoginUserData, AuthResponse } from '../../domain/entities/User';
 import { handleSessionExpired } from '../../utils/sessionExpired';
+import { authorizedFetch } from '../../utils/authorizedFetch';
 
 // In development, use relative URLs so the CRA dev server proxies to the backend (avoids CORS).
 const API_BASE_URL =
@@ -61,6 +62,7 @@ export class AuthApi {
         });
 
         localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
     }
 
@@ -69,7 +71,7 @@ export class AuthApi {
 
         if (!token) return null;
 
-        const response = await fetch(`${this.baseUrl}/api/v1/auth/me`, {
+        const response = await authorizedFetch(`${this.baseUrl}/api/v1/auth/me`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
             },
@@ -95,7 +97,7 @@ export class AuthApi {
             throw new Error('Токен не найден');
         }
 
-        const response = await fetch(`${this.baseUrl}/api/v1/users/me`, {
+        const response = await authorizedFetch(`${this.baseUrl}/api/v1/users/me`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
             },

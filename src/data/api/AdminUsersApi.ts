@@ -1,4 +1,5 @@
 import { handleSessionExpired } from '../../utils/sessionExpired';
+import { authorizedFetch } from '../../utils/authorizedFetch';
 
 const API_BASE_URL =
   process.env.NODE_ENV === 'development'
@@ -188,14 +189,14 @@ export class AdminUsersApi {
     if (params.emailVerified !== undefined) search.set('emailVerified', String(params.emailVerified));
     const query = search.toString();
     const url = `${this.baseUrl}/api/v1/admin/users${query ? `?${query}` : ''}`;
-    const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() });
+    const response = await authorizedFetch(url, { method: 'GET', headers: getAuthHeaders() });
     checkAdminResponse(response, 'Не удалось загрузить список пользователей');
     return response.json();
   }
 
   /** POST /api/v1/admin/users — создать пользователя */
   async createUser(body: CreateAdminUserRequest): Promise<AdminUser> {
-    const response = await fetch(`${this.baseUrl}/api/v1/admin/users`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/admin/users`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(body),
@@ -209,7 +210,7 @@ export class AdminUsersApi {
 
   /** GET /api/v1/admin/users/{userId} — получить пользователя по ID */
   async getUserById(userId: string): Promise<AdminUser> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/users/${encodeURIComponent(userId)}`,
       { method: 'GET', headers: getAuthHeaders() }
     );
@@ -219,7 +220,7 @@ export class AdminUsersApi {
 
   /** PUT /api/v1/admin/users/{userId} — обновить пользователя */
   async updateUser(userId: string, body: UpdateAdminUserRequest): Promise<AdminUser> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/users/${encodeURIComponent(userId)}`,
       {
         method: 'PUT',
@@ -236,7 +237,7 @@ export class AdminUsersApi {
 
   /** DELETE /api/v1/admin/users/{userId} — удалить пользователя (hard delete) */
   async deleteUser(userId: string): Promise<DeleteUserResponse> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/users/${encodeURIComponent(userId)}`,
       { method: 'DELETE', headers: getAuthHeaders() }
     );
@@ -249,7 +250,7 @@ export class AdminUsersApi {
 
   /** PATCH /api/v1/admin/users/{userId}/role — изменить роль */
   async setUserRole(userId: string, body: SetRoleRequest): Promise<AdminUser> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/users/${encodeURIComponent(userId)}/role`,
       {
         method: 'PATCH',
@@ -266,7 +267,7 @@ export class AdminUsersApi {
 
   /** PATCH /api/v1/admin/users/{userId}/reset-password — сбросить пароль */
   async resetPassword(userId: string, body: ResetPasswordRequest): Promise<void> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/users/${encodeURIComponent(userId)}/reset-password`,
       {
         method: 'PATCH',
@@ -282,7 +283,7 @@ export class AdminUsersApi {
 
   /** PATCH /api/v1/admin/users/{userId}/email-verification — статус верификации email */
   async setEmailVerification(userId: string, body: SetEmailVerificationRequest): Promise<AdminUser> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/users/${encodeURIComponent(userId)}/email-verification`,
       {
         method: 'PATCH',
@@ -299,7 +300,7 @@ export class AdminUsersApi {
 
   /** PATCH /api/v1/admin/users/{userId}/active-status — блокировка/разблокировка (soft delete) */
   async setActiveStatus(userId: string, body: SetActiveStatusRequest): Promise<AdminUser> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/users/${encodeURIComponent(userId)}/active-status`,
       {
         method: 'PATCH',
@@ -316,7 +317,7 @@ export class AdminUsersApi {
 
   /** GET /api/v1/admin/users/statistics — общая статистика пользователей */
   async getUsersStatistics(): Promise<UserStatistics> {
-    const response = await fetch(`${this.baseUrl}/api/v1/admin/users/statistics`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/admin/users/statistics`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -331,14 +332,14 @@ export class AdminUsersApi {
     if (params?.size != null) search.set('size', String(params.size));
     const query = search.toString();
     const url = `${this.baseUrl}/api/v1/admin/login-history/user/${encodeURIComponent(userId)}${query ? `?${query}` : ''}`;
-    const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() });
+    const response = await authorizedFetch(url, { method: 'GET', headers: getAuthHeaders() });
     checkAdminResponse(response, 'Не удалось загрузить историю входов');
     return response.json();
   }
 
   /** GET /api/v1/admin/login-history/user/{userId}/stats — статистика входов пользователя */
   async getLoginHistoryStats(userId: string): Promise<UserLoginStats> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/login-history/user/${encodeURIComponent(userId)}/stats`,
       { method: 'GET', headers: getAuthHeaders() }
     );

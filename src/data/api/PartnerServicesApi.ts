@@ -1,4 +1,5 @@
 import { handleSessionExpired } from '../../utils/sessionExpired';
+import { authorizedFetch } from '../../utils/authorizedFetch';
 
 const API_BASE_URL =
   process.env.NODE_ENV === 'development'
@@ -108,7 +109,7 @@ export class PartnerServicesApi {
 
   /** Список активных категорий услуг (для выбора при создании услуги) */
   async getCategories(): Promise<ServiceCategory[]> {
-    const response = await fetch(`${this.baseUrl}/api/v1/services/categories`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/services/categories`, {
       method: 'GET',
       headers: { Accept: 'application/json' },
     });
@@ -123,7 +124,7 @@ export class PartnerServicesApi {
     if (params?.size != null) searchParams.set('size', String(params.size));
     const query = searchParams.toString();
     const url = `${this.baseUrl}/api/v1/partner/services${query ? `?${query}` : ''}`;
-    const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() });
+    const response = await authorizedFetch(url, { method: 'GET', headers: getAuthHeaders() });
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
         handleSessionExpired();
@@ -142,7 +143,7 @@ export class PartnerServicesApi {
       imageUrls: normalizedImages,
       images: normalizedImages,
     };
-    const response = await fetch(`${this.baseUrl}/api/v1/partner/services`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/partner/services`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(payload),
@@ -166,7 +167,7 @@ export class PartnerServicesApi {
       imageUrls: normalizedImages,
       images: normalizedImages,
     };
-    const response = await fetch(`${this.baseUrl}/api/v1/partner/services/${encodeURIComponent(serviceId)}`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/partner/services/${encodeURIComponent(serviceId)}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(payload),
@@ -183,7 +184,7 @@ export class PartnerServicesApi {
   }
 
   async deleteService(serviceId: string): Promise<{ message: string }> {
-    const response = await fetch(`${this.baseUrl}/api/v1/partner/services/${encodeURIComponent(serviceId)}`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/partner/services/${encodeURIComponent(serviceId)}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });

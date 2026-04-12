@@ -1,4 +1,5 @@
 import { handleSessionExpired } from '../../utils/sessionExpired';
+import { authorizedFetch } from '../../utils/authorizedFetch';
 
 const API_BASE_URL =
   process.env.NODE_ENV === 'development'
@@ -62,7 +63,7 @@ export class PartnerApi {
       ...(data.logoUrl && { logoUrl: data.logoUrl }),
     };
 
-    const response = await fetch(`${this.baseUrl}/api/v1/partner/register`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/partner/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -99,7 +100,7 @@ export class PartnerApi {
     const token = localStorage.getItem('authToken');
     if (!token) return null;
 
-    const response = await fetch(`${this.baseUrl}/api/v1/partner/my-application`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/partner/my-application`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

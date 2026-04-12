@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Search, Menu, User, Heart, LogOut, LayoutDashboard, ShoppingCart, Calendar, MessageSquare } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, Menu, User, Heart, LogOut, LayoutDashboard, ShoppingCart, Calendar, MessageSquare, Bell } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useAuth } from "../contexts/AuthContext";
@@ -12,6 +13,7 @@ import {
     DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
+import { NotificationsBell } from "./notifications/NotificationsBell";
 
 interface HeaderProps {
     onNavigate: (page: string) => void;
@@ -20,6 +22,7 @@ interface HeaderProps {
 
 export function Header({ onNavigate, currentPage }: HeaderProps) {
     const { isAuthenticated, user, logout } = useAuth();
+    const routerNavigate = useNavigate();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     const handleLogout = async () => {
@@ -129,6 +132,8 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                             <ShoppingCart className="w-5 h-5" />
                         </Button>
 
+                        {isAuthenticated && <NotificationsBell />}
+
                         {/* Auth Section */}
                         {isAuthenticated ? (
                             // Если авторизован - показываем профиль
@@ -202,7 +207,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                         )}
                     </div>
 
-                    {/* Mobile Menu Button */}
+                    {/* Mobile: колокольчик вынесен в профиль /profile/notifications, здесь только меню */}
                     <Button
                         variant="ghost"
                         size="icon"
@@ -303,6 +308,16 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                                         </p>
                                         <p className="text-xs text-gray-500 truncate">{user?.email}</p>
                                     </div>
+                                    <button
+                                        onClick={() => {
+                                            setMobileMenuOpen(false);
+                                            routerNavigate("/profile/notifications");
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
+                                    >
+                                        <Bell className="w-5 h-5" />
+                                        <span>Уведомления</span>
+                                    </button>
                                     <button
                                         onClick={() => navTo('client-dashboard')}
                                         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"

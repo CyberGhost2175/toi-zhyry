@@ -11,9 +11,13 @@ export class RegisterUseCase {
         // Регистрация через репозиторий
         const response = await this.authRepository.register(data);
 
-        // Сохранение токена
         if (response.token) {
             localStorage.setItem('authToken', response.token);
+            if (response.refreshToken) {
+                localStorage.setItem('refreshToken', response.refreshToken);
+            } else {
+                localStorage.removeItem('refreshToken');
+            }
             localStorage.setItem('user', JSON.stringify(response.user));
         }
 

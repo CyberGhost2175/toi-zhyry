@@ -1,4 +1,5 @@
 import { handleSessionExpired } from "../../utils/sessionExpired";
+import { authorizedFetch } from "../../utils/authorizedFetch";
 
 const API_BASE_URL =
   process.env.NODE_ENV === "development"
@@ -57,7 +58,7 @@ export class ServicesAvailabilityApi {
       serviceId
     )}/availability?from=${encodeURIComponent(params.from)}&to=${encodeURIComponent(params.to)}`;
 
-    const response = await fetch(url, {
+    const response = await authorizedFetch(url, {
       method: "GET",
       headers: getOptionalAuthHeaders(),
     });
@@ -85,7 +86,7 @@ export class ServicesAvailabilityApi {
     serviceId: string,
     body: SetAvailabilityRequest
   ): Promise<ServiceAvailabilityItem[]> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/services/${encodeURIComponent(
         serviceId
       )}/availability`,
@@ -115,7 +116,7 @@ export class ServicesAvailabilityApi {
    * DELETE /api/v1/services/{serviceId}/availability/{date}
    */
   async deleteAvailability(serviceId: string, date: string): Promise<void> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/services/${encodeURIComponent(
         serviceId
       )}/availability/${encodeURIComponent(date)}`,

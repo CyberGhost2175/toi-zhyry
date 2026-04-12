@@ -1,4 +1,5 @@
 import { handleSessionExpired } from '../../utils/sessionExpired';
+import { authorizedFetch } from '../../utils/authorizedFetch';
 
 const API_BASE_URL =
   process.env.NODE_ENV === 'development'
@@ -66,7 +67,7 @@ export class AdminCategoriesApi {
 
   /** GET /api/v1/admin/categories — все категории (включая неактивные) */
   async getCategories(): Promise<AdminCategory[]> {
-    const response = await fetch(`${this.baseUrl}/api/v1/admin/categories`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/admin/categories`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -77,7 +78,7 @@ export class AdminCategoriesApi {
 
   /** GET /api/v1/admin/categories/{categoryId} */
   async getCategoryById(categoryId: string): Promise<AdminCategory> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/categories/${encodeURIComponent(categoryId)}`,
       { method: 'GET', headers: getAuthHeaders() }
     );
@@ -87,7 +88,7 @@ export class AdminCategoriesApi {
 
   /** POST /api/v1/admin/categories — создать категорию. Ответ: AdminCategory */
   async createCategory(body: CreateCategoryRequest): Promise<AdminCategory> {
-    const response = await fetch(`${this.baseUrl}/api/v1/admin/categories`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/admin/categories`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(body),
@@ -101,7 +102,7 @@ export class AdminCategoriesApi {
 
   /** PUT /api/v1/admin/categories/{categoryId} — редактировать. Ответ: AdminCategory */
   async updateCategory(categoryId: string, body: UpdateCategoryRequest): Promise<AdminCategory> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/categories/${encodeURIComponent(categoryId)}`,
       {
         method: 'PUT',
@@ -118,7 +119,7 @@ export class AdminCategoriesApi {
 
   /** DELETE /api/v1/admin/categories/{categoryId}. Ответ: { message: string } */
   async deleteCategory(categoryId: string): Promise<DeleteCategoryResponse> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/categories/${encodeURIComponent(categoryId)}`,
       { method: 'DELETE', headers: getAuthHeaders() }
     );

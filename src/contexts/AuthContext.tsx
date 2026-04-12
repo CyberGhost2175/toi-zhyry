@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { decodeJwtPayload } from '../utils/jwt';
 import { getSessionExpiredEventName } from '../utils/sessionExpired';
+import { AUTH_TOKENS_UPDATED_EVENT, authorizedFetch } from '../utils/authorizedFetch';
 
 const SESSION_EXPIRED_MESSAGE = 'Вы вышли из аккаунта. Необходимо авторизоваться заново.';
 
@@ -46,6 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } catch (_) {}
         }
         localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
         setToken(null);
         setUser(null);
@@ -61,6 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(null);
             setIsAuthenticated(false);
             localStorage.removeItem('authToken');
+            localStorage.removeItem('refreshToken');
             localStorage.removeItem('user');
         };
         window.addEventListener(getSessionExpiredEventName(), onSessionExpired);
@@ -108,6 +111,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [logout]);
 
+    useEffect(() => {
+        const onTokensUpdated = () => {
+            const t = localStorage.getItem('authToken');
+            if (t) setToken(t);
+        };
+        window.addEventListener(AUTH_TOKENS_UPDATED_EVENT, onTokensUpdated);
+        return () => window.removeEventListener(AUTH_TOKENS_UPDATED_EVENT, onTokensUpdated);
+    }, []);
+
     // При загрузке восстанавливаем сессию из localStorage
     useEffect(() => {
         checkAuth();
@@ -119,7 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!isAuthenticated || !token || !user) return;
 
         const apiBase = process.env.NODE_ENV === 'development' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8080');
-        fetch(`${apiBase}/api/v1/auth/me`, {
+        authorizedFetch(`${apiBase}/api/v1/auth/me`, {
             headers: { Authorization: `Bearer ${token}` },
         })
             .then((res) => {

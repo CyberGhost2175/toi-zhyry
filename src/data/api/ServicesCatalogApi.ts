@@ -1,3 +1,4 @@
+import { authorizedFetch } from '../../utils/authorizedFetch';
 import type {
   CatalogService,
   PagedResponse,
@@ -85,7 +86,7 @@ export class ServicesCatalogApi {
 
   /** GET /api/v1/services/categories — список категорий для левой панели */
   async getCategories(): Promise<ServiceCategory[]> {
-    const response = await fetch(`${this.baseUrl}/api/v1/services/categories`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/services/categories`, {
       method: 'GET',
       headers: { Accept: 'application/json' },
     });
@@ -116,7 +117,7 @@ export class ServicesCatalogApi {
     search.set('sortDirection', sortDirection);
 
     const url = `${this.baseUrl}/api/v1/services?${search.toString()}`;
-    const response = await fetch(url, {
+    const response = await authorizedFetch(url, {
       method: 'GET',
       headers: getCatalogHeaders(),
     });
@@ -131,7 +132,7 @@ export class ServicesCatalogApi {
 
   /** GET /api/v1/services/{serviceId} — детали услуги */
   async getServiceById(serviceId: string): Promise<CatalogService> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/services/${encodeURIComponent(serviceId)}`,
       { method: 'GET', headers: getCatalogHeaders() }
     );
@@ -180,7 +181,7 @@ export class ServicesCatalogApi {
     search.set('size', String(size));
 
     const url = `${this.baseUrl}/api/v1/services/filter?${search.toString()}`;
-    const response = await fetch(url, {
+    const response = await authorizedFetch(url, {
       method: 'GET',
       headers: getCatalogHeaders(),
     });

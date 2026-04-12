@@ -1,5 +1,6 @@
 import type { CatalogService, PagedResponse } from '../../domain/entities/Service';
 import { handleSessionExpired } from '../../utils/sessionExpired';
+import { authorizedFetch } from '../../utils/authorizedFetch';
 
 const API_BASE_URL =
   process.env.NODE_ENV === 'development'
@@ -35,7 +36,7 @@ export class FavoritesApi {
     search.set('page', String(page));
     search.set('size', String(size));
     const url = `${this.baseUrl}/api/v1/favorites?${search.toString()}`;
-    const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() });
+    const response = await authorizedFetch(url, { method: 'GET', headers: getAuthHeaders() });
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
         handleSessionExpired();
@@ -49,7 +50,7 @@ export class FavoritesApi {
 
   /** POST /api/v1/favorites/{serviceId} — добавить в избранное */
   async addToFavorites(serviceId: string): Promise<{ message: string }> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/favorites/${encodeURIComponent(serviceId)}`,
       { method: 'POST', headers: getAuthHeaders() }
     );
@@ -66,7 +67,7 @@ export class FavoritesApi {
 
   /** DELETE /api/v1/favorites/{serviceId} — удалить из избранного */
   async removeFromFavorites(serviceId: string): Promise<{ message: string }> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/favorites/${encodeURIComponent(serviceId)}`,
       { method: 'DELETE', headers: getAuthHeaders() }
     );

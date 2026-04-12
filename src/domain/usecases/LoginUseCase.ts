@@ -11,9 +11,14 @@ export class LoginUseCase {
         // Вход через репозиторий
         const response = await this.authRepository.login(data);
 
-        // Сохранение токена
+        // Сохранение access + refresh
         if (response.token) {
             localStorage.setItem('authToken', response.token);
+            if (response.refreshToken) {
+                localStorage.setItem('refreshToken', response.refreshToken);
+            } else {
+                localStorage.removeItem('refreshToken');
+            }
             localStorage.setItem('user', JSON.stringify(response.user));
         }
 

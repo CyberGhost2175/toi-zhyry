@@ -1,4 +1,5 @@
 import { handleSessionExpired } from '../../utils/sessionExpired';
+import { authorizedFetch } from '../../utils/authorizedFetch';
 
 const API_BASE_URL =
   process.env.NODE_ENV === 'development'
@@ -104,7 +105,7 @@ export class AdminApi {
   }
 
   async getPendingApplications(): Promise<PartnerApplicationItem[]> {
-    const response = await fetch(`${this.baseUrl}/api/v1/admin/partners/pending`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/admin/partners/pending`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -113,7 +114,7 @@ export class AdminApi {
   }
 
   async getApplicationsByStatus(status: PartnerApplicationStatus): Promise<PartnerApplicationItem[]> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/partners/status/${encodeURIComponent(status)}`,
       { method: 'GET', headers: getAuthHeaders() }
     );
@@ -125,7 +126,7 @@ export class AdminApi {
     partnerId: string,
     body: ApproveRequest
   ): Promise<PartnerApplicationItem> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/partners/${partnerId}/approve`,
       {
         method: 'POST',
@@ -163,13 +164,13 @@ export class AdminApi {
     if (params?.search) searchParams.set('search', params.search);
     const query = searchParams.toString();
     const url = `${this.baseUrl}/api/v1/admin/partner-directory${query ? `?${query}` : ''}`;
-    const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() });
+    const response = await authorizedFetch(url, { method: 'GET', headers: getAuthHeaders() });
     checkAdminResponse(response, 'Не удалось загрузить справочник партнёров');
     return response.json();
   }
 
   async getPartnerById(partnerId: string): Promise<PartnerDirectoryItem> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/partner-directory/${encodeURIComponent(partnerId)}`,
       { method: 'GET', headers: getAuthHeaders() }
     );

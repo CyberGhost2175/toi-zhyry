@@ -1,4 +1,5 @@
 import { handleSessionExpired } from '../../utils/sessionExpired';
+import { authorizedFetch } from '../../utils/authorizedFetch';
 
 const API_BASE_URL =
   process.env.NODE_ENV === 'development'
@@ -86,7 +87,7 @@ export class AdminServicesApi {
   }
 
   async getPendingServices(): Promise<AdminServiceItem[]> {
-    const response = await fetch(`${this.baseUrl}/api/v1/admin/services/pending`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/admin/services/pending`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -107,7 +108,7 @@ export class AdminServicesApi {
     if (params?.sortDirection) searchParams.set('sortDirection', params.sortDirection);
     const query = searchParams.toString();
     const url = `${this.baseUrl}/api/v1/admin/services${query ? `?${query}` : ''}`;
-    const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() });
+    const response = await authorizedFetch(url, { method: 'GET', headers: getAuthHeaders() });
     checkResponse(response, 'Не удалось загрузить список услуг');
     const data = await response.json();
     if (Array.isArray(data)) {
@@ -135,7 +136,7 @@ export class AdminServicesApi {
   }
 
   async getServiceById(serviceId: string): Promise<AdminServiceItem> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/services/${encodeURIComponent(serviceId)}`,
       { method: 'GET', headers: getAuthHeaders() }
     );
@@ -144,7 +145,7 @@ export class AdminServicesApi {
   }
 
   async setApprovalStatus(serviceId: string, body: SetApprovalRequest): Promise<void> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/services/${encodeURIComponent(serviceId)}/approval-status`,
       {
         method: 'PATCH',
@@ -156,7 +157,7 @@ export class AdminServicesApi {
   }
 
   async setActiveStatus(serviceId: string, body: SetActiveRequest): Promise<void> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/admin/services/${encodeURIComponent(serviceId)}/active-status`,
       {
         method: 'PATCH',

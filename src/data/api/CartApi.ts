@@ -1,4 +1,5 @@
 import { handleSessionExpired } from '../../utils/sessionExpired';
+import { authorizedFetch } from '../../utils/authorizedFetch';
 
 const API_BASE_URL =
   process.env.NODE_ENV === 'development'
@@ -84,7 +85,7 @@ export class CartApi {
 
   /** GET /api/v1/cart — содержимое корзины с итоговой суммой */
   async getCart(): Promise<CartResponse> {
-    const response = await fetch(`${this.baseUrl}/api/v1/cart`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/cart`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -99,7 +100,7 @@ export class CartApi {
 
   /** POST /api/v1/cart — добавить услугу в корзину или обновить */
   async addToCart(body: AddToCartRequest): Promise<{ message: string }> {
-    const response = await fetch(`${this.baseUrl}/api/v1/cart`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/cart`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(body),
@@ -110,7 +111,7 @@ export class CartApi {
 
   /** DELETE /api/v1/cart — очистить корзину */
   async clearCart(): Promise<{ message: string }> {
-    const response = await fetch(`${this.baseUrl}/api/v1/cart`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/cart`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -120,7 +121,7 @@ export class CartApi {
 
   /** DELETE /api/v1/cart/{serviceId} — удалить услугу из корзины */
   async removeFromCart(serviceId: string): Promise<{ message: string }> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/cart/${encodeURIComponent(serviceId)}`,
       { method: 'DELETE', headers: getAuthHeaders() }
     );

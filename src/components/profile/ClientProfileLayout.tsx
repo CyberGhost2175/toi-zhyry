@@ -36,6 +36,18 @@ export function ClientProfileLayout() {
               Бронирования
             </NavLink>
           )}
+          <NavLink
+            to="/profile/notifications"
+            className={({ isActive }) =>
+              `px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 -mb-px transition-colors ${
+                isActive
+                  ? "border-[#00AFAE] text-[#00AFAE] bg-white"
+                  : "border-transparent text-gray-600 hover:text-[#222222]"
+              }`
+            }
+          >
+            Уведомления
+          </NavLink>
         </nav>
       </div>
       <Outlet />

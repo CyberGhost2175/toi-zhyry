@@ -18,13 +18,14 @@ import { FavoritesApi } from "../data/api/FavoritesApi";
 import { CartApi } from "../data/api/CartApi";
 import { BookingsApi } from "../data/api/BookingsApi";
 import { ServicesAvailabilityApi, type ServiceAvailabilityItem } from "../data/api/ServicesAvailabilityApi";
-import { ReviewsApi, type Review } from "../data/api/ReviewsApi";
+import { ReviewsApi, type Review, type ReviewsSort, type ServiceReviewsSummary } from "../data/api/ReviewsApi";
 import { useAuth } from "../contexts/AuthContext";
 import type { CatalogService } from "../domain/entities/Service";
 import { getImageUrl } from "../utils/imageUrl";
 import { formatPriceByType } from "../utils/priceType";
 import { toast } from "sonner";
 import { Textarea } from "./ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 const servicesApi = new ServicesCatalogApi();
 const favoritesApi = new FavoritesApi();
@@ -59,6 +60,8 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
   const [availabilityItems, setAvailabilityItems] = useState<ServiceAvailabilityItem[]>([]);
   const [serviceReviews, setServiceReviews] = useState<Review[]>([]);
   const [serviceReviewsLoading, setServiceReviewsLoading] = useState(false);
+  const [reviewsSort, setReviewsSort] = useState<ReviewsSort>("NEW");
+  const [reviewsSummary, setReviewsSummary] = useState<ServiceReviewsSummary | null>(null);
 
   const toYMD = (d: Date): string => {
     const y = d.getFullYear();
@@ -127,16 +130,19 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
     (async () => {
       setServiceReviewsLoading(true);
       let merged: Review[] = [];
+      let summary: ServiceReviewsSummary | null = null;
 
-      // 1) Пытаемся получить публичные отзывы (может быть 403 на некоторых стендах)
       try {
-        const publicRes = await reviewsApi.getServiceReviews(serviceId, { page: 0, size: 20 });
-        merged = publicRes.content || [];
+        const [summaryResult, publicResult] = await Promise.allSettled([
+          reviewsApi.getServiceReviewsSummary(serviceId),
+          reviewsApi.getServiceReviews(serviceId, { page: 0, size: 20, sort: reviewsSort }),
+        ]);
+        if (summaryResult.status === "fulfilled") summary = summaryResult.value;
+        if (publicResult.status === "fulfilled") merged = publicResult.value.content || [];
       } catch (_) {
-        // Игнорируем, чтобы всё равно попробовать "мои отзывы"
+        // оставляем merged/summary по умолчанию
       }
 
-      // 2) Для авторизованного клиента обязательно пробуем подмешать его отзывы
       if (isAuthenticated) {
         try {
           const myRes = await reviewsApi.getMyReviews({ page: 0, size: 100 });
@@ -154,6 +160,7 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
       }
 
       if (!cancelled) {
+        setReviewsSummary(summary);
         setServiceReviews(merged);
         setServiceReviewsLoading(false);
       }
@@ -161,7 +168,7 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
     return () => {
       cancelled = true;
     };
-  }, [serviceId, isAuthenticated]);
+  }, [serviceId, isAuthenticated, reviewsSort]);
 
   const handleToggleFavorite = useCallback(async () => {
     if (!service) return;
@@ -446,6 +453,39 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
                 </TabsContent>
 
                 <TabsContent value="reviews" className="mt-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                    {reviewsSummary != null ? (
+                      <p className="text-gray-600 text-sm">
+                        Средняя оценка{" "}
+                        <span className="font-medium text-[#222222]">
+                          {Number(reviewsSummary.averageRating).toFixed(1)}
+                        </span>
+                        {" · "}
+                        {reviewsSummary.totalReviews}{" "}
+                        {(() => {
+                          const n = reviewsSummary.totalReviews;
+                          if (n % 10 === 1 && n % 100 !== 11) return "отзыв";
+                          if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return "отзыва";
+                          return "отзывов";
+                        })()}
+                      </p>
+                    ) : (
+                      <span />
+                    )}
+                    <Select
+                      value={reviewsSort}
+                      onValueChange={(v) => setReviewsSort(v as ReviewsSort)}
+                    >
+                      <SelectTrigger className="w-full sm:w-52 rounded-xl" aria-label="Сортировка отзывов">
+                        <SelectValue placeholder="Сортировка" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NEW">Сначала новые</SelectItem>
+                        <SelectItem value="BEST">Сначала лучшие</SelectItem>
+                        <SelectItem value="WORST">Сначала с низкой оценкой</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   {serviceReviewsLoading ? (
                     <p className="text-gray-500">Загрузка отзывов...</p>
                   ) : serviceReviews.length === 0 ? (
@@ -463,10 +503,10 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
                                 .join("")
                                 .toUpperCase()}
                             </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-2 gap-2">
                                 <h4 className="text-[#222222]">{review.userFullName || "Пользователь"}</h4>
-                                <span className="text-gray-500">
+                                <span className="text-gray-500 shrink-0">
                                   {review.createdAt
                                     ? new Date(review.createdAt).toLocaleDateString("ru-RU")
                                     : "—"}
@@ -478,6 +518,25 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
                                 ))}
                               </div>
                               <p className="text-gray-600 whitespace-pre-wrap">{review.comment || "—"}</p>
+                              {Array.isArray(review.imageUrls) && review.imageUrls.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-3">
+                                  {review.imageUrls.map((src, idx) => (
+                                    <a
+                                      key={`${review.id}-img-${idx}`}
+                                      href={getImageUrl(src)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="block"
+                                    >
+                                      <ImageWithFallback
+                                        src={getImageUrl(src)}
+                                        alt={`Фото к отзыву ${idx + 1}`}
+                                        className="w-20 h-20 object-cover rounded-lg border border-gray-100"
+                                      />
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>

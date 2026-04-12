@@ -25,9 +25,10 @@ export interface LoginUserData {
 }
 
 export interface AuthResponse {
-    // Формат для login
+    // Формат для login / register при выдаче JWT
     user?: User;
     token?: string;
+    refreshToken?: string;
 
     // Формат для register (ваш текущий бэкенд)
     id?: string;

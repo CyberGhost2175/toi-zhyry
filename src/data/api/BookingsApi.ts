@@ -1,4 +1,5 @@
 import { handleSessionExpired } from "../../utils/sessionExpired";
+import { authorizedFetch } from "../../utils/authorizedFetch";
 
 const API_BASE_URL =
   process.env.NODE_ENV === "development"
@@ -89,7 +90,7 @@ export class BookingsApi {
   constructor(private baseUrl: string = API_BASE_URL) {}
 
   async createBooking(body: CreateBookingRequest): Promise<Booking> {
-    const response = await fetch(`${this.baseUrl}/api/v1/bookings`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/bookings`, {
       method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify(body),
@@ -118,7 +119,7 @@ export class BookingsApi {
     if (params?.size != null) search.set("size", String(params.size));
     const q = search.toString();
     const url = `${this.baseUrl}/api/v1/bookings${q ? `?${q}` : ""}`;
-    const response = await fetch(url, { method: "GET", headers: getAuthHeaders() });
+    const response = await authorizedFetch(url, { method: "GET", headers: getAuthHeaders() });
     if (!response.ok) {
       if (response.status === 401) {
         handleSessionExpired();
@@ -133,7 +134,7 @@ export class BookingsApi {
   }
 
   async getBookingById(bookingId: string): Promise<Booking> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/bookings/${encodeURIComponent(bookingId)}`,
       { method: "GET", headers: getAuthHeaders() }
     );
@@ -151,7 +152,7 @@ export class BookingsApi {
   }
 
   async cancelBooking(bookingId: string): Promise<Booking> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/bookings/${encodeURIComponent(bookingId)}/cancel`,
       { method: "PATCH", headers: getAuthHeaders() }
     );
@@ -169,7 +170,7 @@ export class BookingsApi {
   }
 
   async completeBooking(bookingId: string): Promise<Booking> {
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${this.baseUrl}/api/v1/bookings/${encodeURIComponent(bookingId)}/complete`,
       { method: "PATCH", headers: getAuthHeaders() }
     );

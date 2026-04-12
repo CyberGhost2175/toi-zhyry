@@ -1,4 +1,5 @@
 import { handleSessionExpired } from '../../utils/sessionExpired';
+import { authorizedFetch } from '../../utils/authorizedFetch';
 
 const API_BASE_URL =
   process.env.NODE_ENV === 'development'
@@ -88,7 +89,7 @@ export class FilesApi {
     const form = new FormData();
     form.append('file', file);
 
-    const response = await fetch(`${this.baseUrl}/api/v1/files/upload`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/files/upload`, {
       method: 'POST',
       headers: getAuthHeader(),
       body: form,
@@ -111,7 +112,7 @@ export class FilesApi {
     const form = new FormData();
     files.forEach((f) => form.append('files', f));
 
-    const response = await fetch(`${this.baseUrl}/api/v1/files/upload-multiple`, {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/files/upload-multiple`, {
       method: 'POST',
       headers: getAuthHeader(),
       body: form,

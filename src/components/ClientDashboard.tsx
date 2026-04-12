@@ -17,6 +17,7 @@ import {
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
+import { authorizedFetch } from '../utils/authorizedFetch';
 
 interface UserProfileProps {
     onNavigate: (page: string, state?: { serviceId?: string }) => void;
@@ -71,7 +72,7 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                 throw new Error('Токен не найден. Пожалуйста, войдите в систему.');
             }
 
-            const response = await fetch('/api/v1/users/me', {
+            const response = await authorizedFetch('/api/v1/users/me', {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -129,7 +130,7 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                 city: editedData.city ?? userData?.city ?? '',
             };
 
-            const response = await fetch('/api/v1/users/me', {
+            const response = await authorizedFetch('/api/v1/users/me', {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -170,7 +171,7 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
         try {
             setIsChangingPassword(true);
             const token = localStorage.getItem('authToken');
-            const response = await fetch('/api/v1/users/me/password', {
+            const response = await authorizedFetch('/api/v1/users/me/password', {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -219,7 +220,7 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
             setIsDeleting(true);
             setDeleteError(null);
             const token = localStorage.getItem('authToken');
-            const response = await fetch('/api/v1/users/me', {
+            const response = await authorizedFetch('/api/v1/users/me', {
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${token}`,
