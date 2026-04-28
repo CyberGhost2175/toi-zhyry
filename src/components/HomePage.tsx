@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ServiceCard } from "./ServiceCard";
 import { KazakhPattern } from "./KazakhPattern";
+import { StoriesStrip } from "./stories/StoriesStrip";
 import { ServicesCatalogApi } from "../data/api/ServicesCatalogApi";
 import type { CatalogService } from "../domain/entities/Service";
 import { ReviewsApi, type Review } from "../data/api/ReviewsApi";
@@ -180,6 +181,10 @@ export function HomePage({ onNavigate }: HomePageProps) {
             );
           })}
         </div>
+      </section>
+
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <StoriesStrip />
       </section>
 
       {/* Popular Services */}

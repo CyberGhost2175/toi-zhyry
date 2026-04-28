@@ -78,6 +78,20 @@ export interface ApproveRequest {
   rejectionReason?: string;
 }
 
+/** POST /api/v1/admin/notifications/test */
+export interface AdminTestNotificationRequest {
+  title: string;
+  message: string;
+  recipientEmail: string;
+  push: boolean;
+  email: boolean;
+  sms: boolean;
+}
+
+export interface AdminTestNotificationResponse {
+  message: string;
+}
+
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('authToken');
   if (!token) throw new Error('Требуется авторизация');
@@ -175,6 +189,24 @@ export class AdminApi {
       { method: 'GET', headers: getAuthHeaders() }
     );
     checkAdminResponse(response, 'Не удалось загрузить профиль партнёра');
+    return response.json();
+  }
+
+  /** POST /api/v1/admin/notifications/test — проверка push / email / sms для текущего администратора */
+  async sendTestNotification(body: AdminTestNotificationRequest): Promise<AdminTestNotificationResponse> {
+    const response = await authorizedFetch(`${this.baseUrl}/api/v1/admin/notifications/test`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        handleSessionExpired();
+        throw new Error('Вы вышли из аккаунта. Необходимо авторизоваться заново.');
+      }
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { message?: string }).message || 'Не удалось отправить тестовое уведомление');
+    }
     return response.json();
   }
 }

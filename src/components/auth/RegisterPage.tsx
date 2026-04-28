@@ -4,13 +4,17 @@ import { Label } from "@radix-ui/react-label";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { diContainer } from '../../di/DIContainer';
+import { useNavigate } from 'react-router-dom';
+import { formatKzPhoneInput, normalizeKzPhone, KZ_CITIES } from '../../utils/kzData';
 
 interface RegisterPageProps {
     onNavigate: (page: string) => void;
 }
 
 export function RegisterPage({ onNavigate }: RegisterPageProps) {
+    const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -48,8 +52,7 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
 
         try {
             // Очищаем телефон перед отправкой - только цифры, формат 77XXXXXXXXX
-            const cleanPhone = formData.phone.replace(/\D/g, ''); // убираем все кроме цифр
-            const phoneForBackend = cleanPhone.startsWith('7') ? cleanPhone : '7' + cleanPhone;
+            const phoneForBackend = normalizeKzPhone(formData.phone);
 
             await registerUseCase.execute({
                 email: formData.email,
@@ -60,8 +63,11 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
                 city: formData.city,
             });
 
-            // Успешная регистрация - переход на страницу входа
-            onNavigate('login');
+            // После регистрации ожидаем подтверждение email перед входом.
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+            navigate(`/verify-email?email=${encodeURIComponent(formData.email.trim())}`);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Произошла ошибка при регистрации');
         } finally {
@@ -83,7 +89,7 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
         formData.firstName.trim() &&
         formData.lastName.trim() &&
         formData.email.trim() &&
-        formData.phone.trim() &&
+        normalizeKzPhone(formData.phone).length === 11 &&
         formData.city.trim();
 
     return (
@@ -164,7 +170,7 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
                                     type="tel"
                                     placeholder="+7 (777) 123-45-67"
                                     value={formData.phone}
-                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                    onChange={(e) => setFormData({ ...formData, phone: formatKzPhoneInput(e.target.value) })}
                                     required
                                     disabled={isLoading}
                                     className="h-12"
@@ -174,16 +180,28 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
                             {/* City */}
                             <div className="space-y-2">
                                 <Label htmlFor="city">Город</Label>
-                                <Input
-                                    id="city"
-                                    type="text"
-                                    placeholder="Алматы"
-                                    value={formData.city}
-                                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                                    required
-                                    disabled={isLoading}
-                                    className="h-12"
-                                />
+                                <Select
+                                  value={formData.city}
+                                  onValueChange={(v) => setFormData({ ...formData, city: v })}
+                                  disabled={isLoading}
+                                >
+                                  <SelectTrigger id="city" className="h-12">
+                                    <SelectValue placeholder="Выберите город" />
+                                  </SelectTrigger>
+                                  <SelectContent
+                                    side="bottom"
+                                    align="start"
+                                    sideOffset={4}
+                                    avoidCollisions={false}
+                                    className="max-h-72"
+                                  >
+                                    {KZ_CITIES.map((city) => (
+                                      <SelectItem key={city} value={city}>
+                                        {city}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                             </div>
                         </div>
 

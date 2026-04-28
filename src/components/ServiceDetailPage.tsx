@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Star, MapPin, Calendar, MessageCircle, Share2, Heart, ChevronLeft, ShoppingCart } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -26,6 +27,12 @@ import { formatPriceByType } from "../utils/priceType";
 import { toast } from "sonner";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { ChatsApi } from "../data/api/ChatsApi";
+import {
+  ServiceVariantsApi,
+  type AttributeDefinition,
+  type ServiceVariant,
+} from "../data/api/ServiceVariantsApi";
 
 const servicesApi = new ServicesCatalogApi();
 const favoritesApi = new FavoritesApi();
@@ -33,6 +40,46 @@ const cartApi = new CartApi();
 const bookingsApi = new BookingsApi();
 const availabilityApi = new ServicesAvailabilityApi();
 const reviewsApi = new ReviewsApi();
+const chatsApi = new ChatsApi();
+const serviceVariantsApi = new ServiceVariantsApi();
+
+const OPTION_LABELS_RU: Record<string, string> = {
+  EUROPEAN: "Европейская",
+  ASIAN: "Азиатская",
+  KAZAKH: "Казахская",
+  ITALIAN: "Итальянская",
+  JAPANESE: "Японская",
+  CHINESE: "Китайская",
+  MIXED: "Смешанная",
+  HALAL: "Халяль",
+  WHITE: "Белый",
+  BLACK: "Черный",
+  SILVER: "Серебристый",
+  RED: "Красный",
+  BLUE: "Синий",
+  GRAY: "Серый",
+  OTHER: "Другое",
+  KK: "Казахский",
+  RU: "Русский",
+  EN: "Английский",
+  WEDDING: "Свадьба",
+  CORPORATE: "Корпоратив",
+  BIRTHDAY: "День рождения",
+  ANNIVERSARY: "Юбилей",
+  GRADUATION: "Выпускной",
+  CONFERENCE: "Конференция",
+  CLASSIC: "Классика",
+  BOHO: "Бохо",
+  RUSTIC: "Рустик",
+  MODERN: "Модерн",
+  MINIMALIST: "Минимализм",
+  ROMANTIC: "Романтик",
+  VINTAGE: "Винтаж",
+  PHOTO: "Фото",
+  VIDEO: "Видео",
+  PHOTO_AND_VIDEO: "Фото + видео",
+  DRONE: "Дрон",
+};
 
 interface ServiceDetailPageProps {
   onNavigate: (page: string) => void;
@@ -40,6 +87,7 @@ interface ServiceDetailPageProps {
 }
 
 export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPageProps) {
+  const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [service, setService] = useState<CatalogService | null>(null);
   const [loading, setLoading] = useState(!!serviceId);
@@ -62,6 +110,13 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
   const [serviceReviewsLoading, setServiceReviewsLoading] = useState(false);
   const [reviewsSort, setReviewsSort] = useState<ReviewsSort>("NEW");
   const [reviewsSummary, setReviewsSummary] = useState<ServiceReviewsSummary | null>(null);
+  const [serviceVariants, setServiceVariants] = useState<ServiceVariant[]>([]);
+  const [variantsLoading, setVariantsLoading] = useState(false);
+  const [selectedVariantId, setSelectedVariantId] = useState<string>("");
+  const [clientAttributeSchema, setClientAttributeSchema] = useState<AttributeDefinition[]>([]);
+  const [filterEnabledByKey, setFilterEnabledByKey] = useState<Record<string, boolean>>({});
+  const [filterValuesByKey, setFilterValuesByKey] = useState<Record<string, unknown>>({});
+  const [searchingVariants, setSearchingVariants] = useState(false);
 
   const toYMD = (d: Date): string => {
     const y = d.getFullYear();
@@ -69,6 +124,20 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
     const day = String(d.getDate()).padStart(2, "0");
     return `${y}-${m}-${day}`;
   };
+
+  const getOptionLabel = useCallback((value: string) => OPTION_LABELS_RU[value] || value, []);
+
+  const inferCategorySlug = useCallback((raw: string | undefined): string => {
+    const source = (raw || "").trim().toLowerCase();
+    if (!source) return "";
+    if (source.includes("ресторан") || source.includes("restaurant")) return "restaurants";
+    if (source.includes("транспорт") || source.includes("авто") || source.includes("transport")) return "transport";
+    if (source.includes("ведущ") || source.includes("музык") || source.includes("host")) return "hosts-musicians";
+    if (source.includes("декор") || source.includes("decor")) return "decorators";
+    if (source.includes("фото") || source.includes("видео") || source.includes("photo")) return "photo-video";
+    if (source.includes("кейтер") || source.includes("catering")) return "catering";
+    return source.replace(/\s+/g, "-");
+  }, []);
 
   const startOfToday = useMemo(() => {
     const d = new Date();
@@ -170,6 +239,82 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
     };
   }, [serviceId, isAuthenticated, reviewsSort]);
 
+  useEffect(() => {
+    if (!service?.id) {
+      setServiceVariants([]);
+      setClientAttributeSchema([]);
+      setSelectedVariantId("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setVariantsLoading(true);
+      try {
+        const variants = await serviceVariantsApi.getServiceVariants(service.id);
+        if (cancelled) return;
+        setServiceVariants(variants);
+        setSelectedVariantId((prev) => prev || variants[0]?.id || "");
+      } catch (e) {
+        if (!cancelled) {
+          setServiceVariants([]);
+          toast.error(e instanceof Error ? e.message : "Не удалось загрузить варианты услуги");
+        }
+      } finally {
+        if (!cancelled) setVariantsLoading(false);
+      }
+    })();
+
+    (async () => {
+      const slug = inferCategorySlug(service.categoryName);
+      if (!slug) return;
+      try {
+        const schema = await serviceVariantsApi.getClientAttributeSchema(slug);
+        if (cancelled) return;
+        setClientAttributeSchema(schema.sort((a, b) => a.sortOrder - b.sortOrder));
+      } catch {
+        if (!cancelled) setClientAttributeSchema([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [service?.id, service?.categoryName, inferCategorySlug]);
+
+  useEffect(() => {
+    if (!service?.id) return;
+    const enabledFilters = clientAttributeSchema.filter((attribute) => filterEnabledByKey[attribute.key]);
+    const filters = enabledFilters.reduce<Record<string, unknown>>((acc, attribute) => {
+      const value = filterValuesByKey[attribute.key];
+      if (value === undefined || value === null || value === "") return acc;
+      if (Array.isArray(value) && value.length === 0) return acc;
+      acc[attribute.key] = value;
+      return acc;
+    }, {});
+    const timer = window.setTimeout(async () => {
+      if (Object.keys(filters).length === 0) {
+        try {
+          const all = await serviceVariantsApi.getServiceVariants(service.id);
+          setServiceVariants(all);
+          setSelectedVariantId((prev) => (all.some((v) => v.id === prev) ? prev : all[0]?.id || ""));
+        } catch {
+          setServiceVariants([]);
+        }
+        return;
+      }
+      setSearchingVariants(true);
+      try {
+        const results = await serviceVariantsApi.searchServiceVariants(service.id, filters);
+        setServiceVariants(results);
+        setSelectedVariantId((prev) => (results.some((v) => v.id === prev) ? prev : results[0]?.id || ""));
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Ошибка фильтрации вариантов");
+      } finally {
+        setSearchingVariants(false);
+      }
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [service?.id, clientAttributeSchema, filterEnabledByKey, filterValuesByKey]);
+
   const handleToggleFavorite = useCallback(async () => {
     if (!service) return;
     try {
@@ -206,6 +351,8 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
     setBookingEventTime("12:00");
     setBookingGuestsCount(1);
     setBookingNotes("");
+    setFilterEnabledByKey({});
+    setFilterValuesByKey({});
     setBookingDialogOpen(true);
   }, [isAuthenticated, onNavigate]);
 
@@ -268,14 +415,19 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
       toast.error("Укажите время");
       return;
     }
+    if (serviceVariants.length > 0 && !selectedVariantId) {
+      toast.error("Выберите вариант услуги");
+      return;
+    }
     setBookingSubmitLoading(true);
     try {
       await bookingsApi.createBooking({
         serviceId: service.id,
+        variantId: selectedVariantId || undefined,
         eventDate: toYMD(bookingEventDate),
         eventTime: time,
         guestsCount: Math.max(1, bookingGuestsCount),
-        notes: bookingNotes.trim() || undefined,
+        customerNotes: bookingNotes.trim() || undefined,
       });
       toast.success("Бронирование создано");
       setBookingDialogOpen(false);
@@ -285,7 +437,16 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
     } finally {
       setBookingSubmitLoading(false);
     }
-  }, [service, bookingEventDate, bookingEventTime, bookingGuestsCount, bookingNotes, onNavigate]);
+  }, [
+    service,
+    bookingEventDate,
+    bookingEventTime,
+    bookingGuestsCount,
+    bookingNotes,
+    onNavigate,
+    serviceVariants.length,
+    selectedVariantId,
+  ]);
 
   const submitAddToCart = useCallback(async () => {
     if (!service) return;
@@ -310,6 +471,20 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
       setAddToCartLoading(false);
     }
   }, [service, addToCartQuantity, addToCartDate, addToCartNotes]);
+
+  const contactPartner = useCallback(async () => {
+    if (!service?.partnerId) return;
+    if (!isAuthenticated) {
+      onNavigate("login");
+      return;
+    }
+    try {
+      const chat = await chatsApi.createOrGetChat(service.partnerId);
+      navigate(`/profile/chats?chatId=${encodeURIComponent(chat.id)}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось открыть чат");
+    }
+  }, [service?.partnerId, isAuthenticated, onNavigate, navigate]);
 
   if (!serviceId) {
     return (
@@ -546,6 +721,32 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
                 </TabsContent>
               </Tabs>
             </div>
+
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <h3 className="text-[#222222] mb-4">Варианты услуги</h3>
+              {variantsLoading ? (
+                <p className="text-gray-500">Загрузка вариантов...</p>
+              ) : serviceVariants.length === 0 ? (
+                <p className="text-gray-500">Для этой услуги пока не добавлены варианты.</p>
+              ) : (
+                <div className="space-y-3">
+                  {serviceVariants.map((variant) => (
+                    <div
+                      key={variant.id}
+                      className="rounded-xl border border-gray-200 p-4 flex items-start justify-between gap-3"
+                    >
+                      <div>
+                        <p className="text-[#222222]">{variant.name}</p>
+                        {variant.description && (
+                          <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{variant.description}</p>
+                        )}
+                      </div>
+                      <p className="text-[#00AFAE] font-medium">{(variant.price || 0).toLocaleString("ru-KZ")} ₸</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="lg:col-span-1">
@@ -575,7 +776,7 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
                   <ShoppingCart className="w-5 h-5 mr-2" />
                   В корзину
                 </Button>
-                <Button variant="outline" className="w-full rounded-full h-12">
+                <Button variant="outline" className="w-full rounded-full h-12" onClick={contactPartner}>
                   <MessageCircle className="w-5 h-5 mr-2" />
                   Связаться с партнёром
                 </Button>
@@ -587,6 +788,135 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
                     <DialogTitle>Бронирование</DialogTitle>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
+                    {clientAttributeSchema.length > 0 && (
+                      <div className="grid gap-3 rounded-xl border border-gray-200 p-3">
+                        <p className="text-sm text-[#222222]">Фильтры по вариантам</p>
+                        {clientAttributeSchema.map((attribute) => {
+                          const isEnabled = Boolean(filterEnabledByKey[attribute.key]);
+                          const value = filterValuesByKey[attribute.key];
+                          const options = attribute.validationRules?.options || [];
+                          return (
+                            <div key={attribute.attributeId} className="space-y-2">
+                              <label className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={isEnabled}
+                                  onChange={(e) =>
+                                    setFilterEnabledByKey((prev) => ({ ...prev, [attribute.key]: e.target.checked }))
+                                  }
+                                />
+                                <span>{attribute.labelRu}</span>
+                              </label>
+                              {isEnabled && (
+                                <div>
+                                  {attribute.matchStrategy === "BOOLEAN_MATCH" ? (
+                                    <Select
+                                      value={String(value ?? "true")}
+                                      onValueChange={(v) =>
+                                        setFilterValuesByKey((prev) => ({ ...prev, [attribute.key]: v === "true" }))
+                                      }
+                                    >
+                                      <SelectTrigger className="rounded-xl">
+                                        <SelectValue placeholder="Выберите значение" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="true">Да</SelectItem>
+                                        <SelectItem value="false">Нет</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  ) : attribute.type === "INTEGER" ? (
+                                    <Input
+                                      type="number"
+                                      value={typeof value === "number" ? value : ""}
+                                      placeholder={attribute.unit ? `Значение (${attribute.unit})` : "Значение"}
+                                      onChange={(e) =>
+                                        setFilterValuesByKey((prev) => ({
+                                          ...prev,
+                                          [attribute.key]: e.target.value === "" ? undefined : Number(e.target.value),
+                                        }))
+                                      }
+                                    />
+                                  ) : attribute.type === "STRING_ARRAY" &&
+                                    attribute.matchStrategy === "ARRAY_INTERSECTS" &&
+                                    options.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      {options.map((option) => {
+                                        const selected = Array.isArray(value) && value.includes(option);
+                                        return (
+                                          <label key={option} className="flex items-center gap-2 text-xs border rounded px-2 py-1">
+                                            <input
+                                              type="checkbox"
+                                              checked={selected}
+                                              onChange={(e) =>
+                                                setFilterValuesByKey((prev) => {
+                                                  const current = Array.isArray(prev[attribute.key]) ? [...(prev[attribute.key] as string[])] : [];
+                                                  const next = e.target.checked
+                                                    ? Array.from(new Set([...current, option]))
+                                                    : current.filter((v) => v !== option);
+                                                  return { ...prev, [attribute.key]: next };
+                                                })
+                                              }
+                                            />
+                                            {getOptionLabel(option)}
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : options.length > 0 ? (
+                                    <Select
+                                      value={typeof value === "string" ? value : ""}
+                                      onValueChange={(v) => setFilterValuesByKey((prev) => ({ ...prev, [attribute.key]: v }))}
+                                    >
+                                      <SelectTrigger className="rounded-xl">
+                                        <SelectValue placeholder="Выберите значение" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {options.map((option) => (
+                                          <SelectItem key={option} value={option}>
+                                            {getOptionLabel(option)}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  ) : (
+                                    <Input
+                                      value={typeof value === "string" ? value : ""}
+                                      onChange={(e) =>
+                                        setFilterValuesByKey((prev) => ({ ...prev, [attribute.key]: e.target.value }))
+                                      }
+                                      placeholder="Введите значение"
+                                    />
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {searchingVariants && <p className="text-xs text-gray-500">Подбираем варианты...</p>}
+                      </div>
+                    )}
+                    {serviceVariants.length > 0 && (
+                      <div className="grid gap-2">
+                        <Label>Вариант услуги *</Label>
+                        <Select value={selectedVariantId} onValueChange={setSelectedVariantId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Выберите вариант" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {serviceVariants.map((variant) => (
+                              <SelectItem key={variant.id} value={variant.id}>
+                                {variant.name} - {(variant.price || 0).toLocaleString("ru-KZ")} ₸
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {serviceVariants.length === 0 && !variantsLoading && (
+                      <p className="text-xs text-gray-500">
+                        По вашим критериям вариантов не найдено, попробуйте ослабить фильтры.
+                      </p>
+                    )}
                     <div className="grid gap-2">
                       <Label>Дата мероприятия *</Label>
                       <DatePicker
@@ -620,7 +950,7 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
                       />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="booking-notes">Заметка (необязательно)</Label>
+                      <Label htmlFor="booking-notes">Комментарий (необязательно)</Label>
                       <Textarea
                         id="booking-notes"
                         placeholder="Пожелания, комментарий..."
@@ -637,7 +967,12 @@ export function ServiceDetailPage({ onNavigate, serviceId }: ServiceDetailPagePr
                     <Button
                       className="bg-[#00AFAE] hover:bg-[#00AFAE]/90"
                       onClick={submitBooking}
-                      disabled={bookingSubmitLoading || availabilityLoading || !bookingEventDate}
+                      disabled={
+                        bookingSubmitLoading ||
+                        availabilityLoading ||
+                        !bookingEventDate ||
+                        (serviceVariants.length > 0 && !selectedVariantId)
+                      }
                     >
                       {bookingSubmitLoading ? "Отправка…" : "Забронировать"}
                     </Button>

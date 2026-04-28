@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { NotificationsApi, type AppNotification } from "../../data/api/NotificationsApi";
+import { useAuth } from "../../contexts/AuthContext";
 import { navigateFromNotification } from "./notificationNavigation";
 
 const api = new NotificationsApi();
@@ -10,6 +11,7 @@ const PAGE_SIZE = 20;
 
 export function NotificationsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [tab, setTab] = useState<"all" | "unread">("all");
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState<AppNotification[]>([]);
@@ -44,7 +46,7 @@ export function NotificationsPage() {
     } catch {
       /* ignore */
     }
-    navigateFromNotification(n, navigate);
+    navigateFromNotification(n, navigate, user?.role);
   };
 
   const onMarkAll = async () => {
@@ -59,7 +61,12 @@ export function NotificationsPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 className="text-xl font-semibold text-[#222222]">Уведомления</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-semibold text-[#222222]">Уведомления</h1>
+          <Button variant="outline" size="sm" className="rounded-full shrink-0" asChild>
+            <Link to="/profile/notifications/settings">Настройки</Link>
+          </Button>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg border border-gray-200 p-0.5 bg-white">
             <button

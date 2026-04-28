@@ -32,12 +32,15 @@ export function tryRefreshAccessToken(): Promise<boolean> {
 
         if (!res.ok) return false;
 
-        const data = (await res.json()) as { token?: string; refreshToken?: string };
+        const data = (await res.json()) as { token?: string; refreshToken?: string; profileCompleted?: boolean };
         if (!data?.token) return false;
 
         localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, data.token);
         if (data.refreshToken) {
           localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, data.refreshToken);
+        }
+        if (typeof data.profileCompleted === 'boolean') {
+          localStorage.setItem('profileCompleted', String(data.profileCompleted));
         }
 
         window.dispatchEvent(new CustomEvent(AUTH_TOKENS_UPDATED_EVENT));
@@ -71,7 +74,7 @@ function shouldSkipAuthRefreshForUrl(url: string): boolean {
     path = url;
   }
   return (
-    /\/api\/v1\/auth\/(?:login|register|refresh)(?:\/|$)/.test(path) ||
+    /\/api\/v1\/auth\/(?:login|register|google|refresh)(?:\/|$)/.test(path) ||
     /\/api\/v1\/auth\/logout(?:\/|$)/.test(path)
   );
 }

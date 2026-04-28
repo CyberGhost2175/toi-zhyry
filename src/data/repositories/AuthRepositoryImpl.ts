@@ -13,6 +13,14 @@ export class AuthRepositoryImpl implements AuthRepository {
         return this.authApi.login(data);
     }
 
+    async loginWithGoogle(idToken: string): Promise<AuthResponse> {
+        return this.authApi.loginWithGoogle(idToken);
+    }
+
+    async completeProfile(data: { phone: string; city: string }): Promise<AuthResponse> {
+        return this.authApi.completeProfile(data);
+    }
+
     async logout(): Promise<void> {
         return this.authApi.logout();
     }

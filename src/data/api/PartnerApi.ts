@@ -1,5 +1,6 @@
 import { handleSessionExpired } from '../../utils/sessionExpired';
 import { authorizedFetch } from '../../utils/authorizedFetch';
+import { normalizeKzPhone } from '../../utils/kzData';
 
 const API_BASE_URL =
   process.env.NODE_ENV === 'development'
@@ -51,12 +52,12 @@ export class PartnerApi {
       bin: data.bin,
       companyName: data.companyName,
       city: data.city,
-      phone: data.phone,
+      phone: normalizeKzPhone(data.phone),
       email: data.email,
       description: data.description,
       address: data.address,
       ...(data.region && { region: data.region }),
-      ...(data.whatsapp && { whatsapp: data.whatsapp }),
+      ...(data.whatsapp && { whatsapp: normalizeKzPhone(data.whatsapp) }),
       ...(data.telegram && { telegram: data.telegram }),
       ...(data.instagram && { instagram: data.instagram }),
       ...(data.website && { website: data.website }),

@@ -6,6 +6,8 @@ export interface User {
     phone?: string;
     city?: string;
     role?: string;
+    authProvider?: 'LOCAL' | 'GOOGLE';
+    profileCompleted?: boolean;
     createdAt?: Date;
     updatedAt?: Date;
 }
@@ -29,6 +31,7 @@ export interface AuthResponse {
     user?: User;
     token?: string;
     refreshToken?: string;
+    profileCompleted?: boolean;
 
     // Формат для register (ваш текущий бэкенд)
     id?: string;
@@ -38,6 +41,7 @@ export interface AuthResponse {
     phone?: string;
     city?: string;
     role?: string;
+    authProvider?: 'LOCAL' | 'GOOGLE';
     createdAt?: Date;
     updatedAt?: Date;
     message?: string;

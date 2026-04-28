@@ -71,6 +71,21 @@ export interface ReadAllResponse {
   message: string;
 }
 
+/** GET/PATCH /api/v1/notifications/settings — каналы и категории уведомлений */
+export interface NotificationSettings {
+  pushEnabled: boolean;
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+  bookingUpdates: boolean;
+  chatMessages: boolean;
+  promotions: boolean;
+  eventReminders: boolean;
+  newBookings: boolean;
+}
+
+/** PATCH: передавать только изменяемые поля */
+export type NotificationSettingsPatch = Partial<NotificationSettings>;
+
 export class NotificationsApi {
   constructor(private baseUrl: string = API_BASE_URL) {}
 
@@ -148,6 +163,38 @@ export class NotificationsApi {
         throw new Error("Вы вышли из аккаунта. Необходимо авторизоваться заново.");
       }
       throw new Error(await parseError(response, "Не удалось пометить все прочитанными"));
+    }
+    return response.json();
+  }
+
+  /** GET /api/v1/notifications/settings */
+  async getNotificationSettings(): Promise<NotificationSettings> {
+    const url = `${this.baseUrl}/api/v1/notifications/settings`;
+    const response = await authorizedFetch(url, { method: "GET", headers: getAuthHeaders() });
+    if (!response.ok) {
+      if (response.status === 401) {
+        handleSessionExpired();
+        throw new Error("Вы вышли из аккаунта. Необходимо авторизоваться заново.");
+      }
+      throw new Error(await parseError(response, "Не удалось загрузить настройки уведомлений"));
+    }
+    return response.json();
+  }
+
+  /** PATCH /api/v1/notifications/settings — только изменённые поля */
+  async updateNotificationSettings(patch: NotificationSettingsPatch): Promise<NotificationSettings> {
+    const url = `${this.baseUrl}/api/v1/notifications/settings`;
+    const response = await authorizedFetch(url, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(patch),
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        handleSessionExpired();
+        throw new Error("Вы вышли из аккаунта. Необходимо авторизоваться заново.");
+      }
+      throw new Error(await parseError(response, "Не удалось сохранить настройки"));
     }
     return response.json();
   }

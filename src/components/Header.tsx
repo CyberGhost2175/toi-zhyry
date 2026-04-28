@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Menu, User, Heart, LogOut, LayoutDashboard, ShoppingCart, Calendar, MessageSquare, Bell } from "lucide-react";
+import { Search, Menu, User, Heart, LogOut, LayoutDashboard, ShoppingCart, Calendar, MessageSquare, Bell, MessageCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useAuth } from "../contexts/AuthContext";
@@ -14,6 +14,7 @@ import {
 } from "./ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
 import { NotificationsBell } from "./notifications/NotificationsBell";
+import { PartnerApi } from "../data/api/PartnerApi";
 
 interface HeaderProps {
     onNavigate: (page: string) => void;
@@ -24,6 +25,40 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
     const { isAuthenticated, user, logout } = useAuth();
     const routerNavigate = useNavigate();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const isAdmin = user?.role?.toUpperCase() === "ADMIN";
+    const isPartner = user?.role?.toUpperCase() === "PARTNER";
+    const [hasApprovedPartnerApplication, setHasApprovedPartnerApplication] = useState(false);
+    const hasPartnerCabinetAccess = isPartner || isAdmin || hasApprovedPartnerApplication;
+
+    useEffect(() => {
+        if (!isAuthenticated) {
+            setHasApprovedPartnerApplication(false);
+            return;
+        }
+
+        if (isPartner || isAdmin) {
+            setHasApprovedPartnerApplication(true);
+            return;
+        }
+
+        const partnerApi = new PartnerApi();
+        let cancelled = false;
+
+        partnerApi
+            .getMyApplication()
+            .then((application) => {
+                if (cancelled) return;
+                const status = application?.status?.toUpperCase();
+                setHasApprovedPartnerApplication(status === "APPROVED" || status === "ОДОБРЕНО");
+            })
+            .catch(() => {
+                if (!cancelled) setHasApprovedPartnerApplication(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isAuthenticated, isPartner, isAdmin]);
 
     const handleLogout = async () => {
         await logout();
@@ -51,7 +86,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                         <span className="text-[#222222] font-semibold">Toi Zhyry</span>
                     </div>
 
-                    {/* Desktop Navigation — у админов только Каталог, у остальных ещё О нас и Для партнёров */}
+                    {/* Desktop Navigation */}
                     <nav className="hidden md:flex items-center gap-6">
                         <button
                             onClick={() => onNavigate('catalog')}
@@ -61,23 +96,33 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                         >
                             Каталог
                         </button>
+                        <button
+                            onClick={() => onNavigate('about')}
+                            className={`hover:text-[#00AFAE] transition-colors ${
+                                currentPage === 'about' ? 'text-[#00AFAE]' : 'text-[#222222]'
+                            }`}
+                        >
+                            О нас
+                        </button>
                         {user?.role?.toUpperCase() !== 'ADMIN' && (
-                            <>
-                                <button
-                                    onClick={() => onNavigate('home')}
-                                    className="text-[#222222] hover:text-[#00AFAE] transition-colors"
-                                >
-                                    О нас
-                                </button>
-                                <button
-                                    onClick={() => onNavigate('partner-dashboard')}
-                                    className={`hover:text-[#00AFAE] transition-colors ${
-                                        currentPage === 'partner-dashboard' ? 'text-[#00AFAE]' : 'text-[#222222]'
-                                    }`}
-                                >
-                                    {user?.role?.toUpperCase() === 'PARTNER' ? 'Личный кабинет' : 'Для партнёров'}
-                                </button>
-                            </>
+                            <button
+                                onClick={() =>
+                                    onNavigate(
+                                        hasPartnerCabinetAccess
+                                            ? 'partner-dashboard'
+                                            : 'partners-info'
+                                    )
+                                }
+                                className={`hover:text-[#00AFAE] transition-colors ${
+                                    currentPage === 'partner-dashboard' || currentPage === 'partners-info'
+                                        ? 'text-[#00AFAE]'
+                                        : 'text-[#222222]'
+                                }`}
+                            >
+                                {hasPartnerCabinetAccess
+                                    ? 'Личный кабинет'
+                                    : 'Для партнёров'}
+                            </button>
                         )}
                     </nav>
 
@@ -110,29 +155,30 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                             </Button>
                         )}
 
-                        {/* Favorites */}
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onNavigate('favorites')}
-                            className="rounded-full"
-                            aria-label="Избранное"
-                        >
-                            <Heart className="w-5 h-5" />
-                        </Button>
+                        {!isAdmin && (
+                            <>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => onNavigate('favorites')}
+                                    className="rounded-full"
+                                    aria-label="Избранное"
+                                >
+                                    <Heart className="w-5 h-5" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => onNavigate('cart')}
+                                    className="rounded-full"
+                                    aria-label="Корзина"
+                                >
+                                    <ShoppingCart className="w-5 h-5" />
+                                </Button>
+                            </>
+                        )}
 
-                        {/* Cart */}
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onNavigate('cart')}
-                            className="rounded-full"
-                            aria-label="Корзина"
-                        >
-                            <ShoppingCart className="w-5 h-5" />
-                        </Button>
-
-                        {isAuthenticated && <NotificationsBell />}
+                        {isAuthenticated && !isAdmin && <NotificationsBell />}
 
                         {/* Auth Section */}
                         {isAuthenticated ? (
@@ -167,18 +213,32 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                                         <User className="mr-2 h-4 w-4" />
                                         <span>Профиль</span>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => onNavigate('client-bookings')}>
-                                        <Calendar className="mr-2 h-4 w-4" />
-                                        <span>Бронирования</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => onNavigate('client-reviews')}>
-                                        <MessageSquare className="mr-2 h-4 w-4" />
-                                        <span>Мои отзывы</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => onNavigate('favorites')}>
-                                        <Heart className="mr-2 h-4 w-4" />
-                                        <span>Избранное</span>
-                                    </DropdownMenuItem>
+                                    {hasPartnerCabinetAccess && (
+                                        <DropdownMenuItem onClick={() => onNavigate('partner-dashboard')}>
+                                            <LayoutDashboard className="mr-2 h-4 w-4" />
+                                            <span>Кабинет партнёра</span>
+                                        </DropdownMenuItem>
+                                    )}
+                                    {!isAdmin && (
+                                        <>
+                                            <DropdownMenuItem onClick={() => onNavigate('client-bookings')}>
+                                                <Calendar className="mr-2 h-4 w-4" />
+                                                <span>Бронирования</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => onNavigate('client-reviews')}>
+                                                <MessageSquare className="mr-2 h-4 w-4" />
+                                                <span>{hasPartnerCabinetAccess ? "Отзывы по услугам" : "Мои отзывы"}</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => onNavigate('chats')}>
+                                                <MessageCircle className="mr-2 h-4 w-4" />
+                                                <span>Чат</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => onNavigate('favorites')}>
+                                                <Heart className="mr-2 h-4 w-4" />
+                                                <span>Избранное</span>
+                                            </DropdownMenuItem>
+                                        </>
+                                    )}
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={handleLogout} className="text-red-600">
                                         <LogOut className="mr-2 h-4 w-4" />
@@ -247,23 +307,33 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                             >
                                 Каталог
                             </button>
+                            <button
+                                onClick={() => navTo('about')}
+                                className={`text-left px-4 py-3 rounded-xl transition-colors ${
+                                    currentPage === 'about' ? 'bg-[#00AFAE]/10 text-[#00AFAE] font-medium' : 'text-[#222222] hover:bg-gray-100'
+                                }`}
+                            >
+                                О нас
+                            </button>
                             {user?.role?.toUpperCase() !== 'ADMIN' && (
-                                <>
-                                    <button
-                                        onClick={() => navTo('home')}
-                                        className="text-left px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
-                                    >
-                                        О нас
-                                    </button>
-                                    <button
-                                        onClick={() => navTo('partner-dashboard')}
-                                        className={`text-left px-4 py-3 rounded-xl transition-colors ${
-                                            currentPage === 'partner-dashboard' ? 'bg-[#00AFAE]/10 text-[#00AFAE] font-medium' : 'text-[#222222] hover:bg-gray-100'
-                                        }`}
-                                    >
-                                        {user?.role?.toUpperCase() === 'PARTNER' ? 'Личный кабинет' : 'Для партнёров'}
-                                    </button>
-                                </>
+                                <button
+                                    onClick={() =>
+                                        navTo(
+                                            hasPartnerCabinetAccess
+                                                ? 'partner-dashboard'
+                                                : 'partners-info'
+                                        )
+                                    }
+                                    className={`text-left px-4 py-3 rounded-xl transition-colors ${
+                                        currentPage === 'partner-dashboard' || currentPage === 'partners-info'
+                                            ? 'bg-[#00AFAE]/10 text-[#00AFAE] font-medium'
+                                            : 'text-[#222222] hover:bg-gray-100'
+                                    }`}
+                                >
+                                    {hasPartnerCabinetAccess
+                                        ? 'Личный кабинет'
+                                        : 'Для партнёров'}
+                                </button>
                             )}
                         </nav>
 
@@ -280,23 +350,24 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                             </button>
                         )}
 
-                        {/* Избранное */}
-                        <button
-                            onClick={() => navTo('favorites')}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
-                        >
-                            <Heart className="w-5 h-5" />
-                            <span>Избранное</span>
-                        </button>
-
-                        {/* Корзина */}
-                        <button
-                            onClick={() => navTo('cart')}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
-                        >
-                            <ShoppingCart className="w-5 h-5" />
-                            <span>Корзина</span>
-                        </button>
+                        {!isAdmin && (
+                            <>
+                                <button
+                                    onClick={() => navTo('favorites')}
+                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
+                                >
+                                    <Heart className="w-5 h-5" />
+                                    <span>Избранное</span>
+                                </button>
+                                <button
+                                    onClick={() => navTo('cart')}
+                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
+                                >
+                                    <ShoppingCart className="w-5 h-5" />
+                                    <span>Корзина</span>
+                                </button>
+                            </>
+                        )}
 
                         {/* Аккаунт */}
                         <div className="pt-4 border-t border-gray-200 space-y-1">
@@ -308,16 +379,18 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                                         </p>
                                         <p className="text-xs text-gray-500 truncate">{user?.email}</p>
                                     </div>
-                                    <button
-                                        onClick={() => {
-                                            setMobileMenuOpen(false);
-                                            routerNavigate("/profile/notifications");
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
-                                    >
-                                        <Bell className="w-5 h-5" />
-                                        <span>Уведомления</span>
-                                    </button>
+                                    {!isAdmin && (
+                                        <button
+                                            onClick={() => {
+                                                setMobileMenuOpen(false);
+                                                routerNavigate("/profile/notifications");
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
+                                        >
+                                            <Bell className="w-5 h-5" />
+                                            <span>Уведомления</span>
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => navTo('client-dashboard')}
                                         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
@@ -325,20 +398,40 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                                         <User className="w-5 h-5" />
                                         <span>Профиль</span>
                                     </button>
-                                    <button
-                                        onClick={() => navTo('client-bookings')}
-                                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
-                                    >
-                                        <Calendar className="w-5 h-5" />
-                                        <span>Бронирования</span>
-                                    </button>
-                                    <button
-                                        onClick={() => navTo('client-reviews')}
-                                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
-                                    >
-                                        <MessageSquare className="w-5 h-5" />
-                                        <span>Мои отзывы</span>
-                                    </button>
+                                    {hasPartnerCabinetAccess && (
+                                        <button
+                                            onClick={() => navTo('partner-dashboard')}
+                                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
+                                        >
+                                            <LayoutDashboard className="w-5 h-5" />
+                                            <span>Кабинет партнёра</span>
+                                        </button>
+                                    )}
+                                    {!isAdmin && (
+                                        <>
+                                            <button
+                                                onClick={() => navTo('client-bookings')}
+                                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
+                                            >
+                                                <Calendar className="w-5 h-5" />
+                                                <span>Бронирования</span>
+                                            </button>
+                                            <button
+                                                onClick={() => navTo('client-reviews')}
+                                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
+                                            >
+                                                <MessageSquare className="w-5 h-5" />
+                                                <span>{hasPartnerCabinetAccess ? "Отзывы по услугам" : "Мои отзывы"}</span>
+                                            </button>
+                                            <button
+                                                onClick={() => navTo('chats')}
+                                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#222222] hover:bg-gray-100 transition-colors"
+                                            >
+                                                <MessageCircle className="w-5 h-5" />
+                                                <span>Чат</span>
+                                            </button>
+                                        </>
+                                    )}
                                     <button
                                         onClick={handleLogout}
                                         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 transition-colors"

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Facebook, Instagram, Mail, Phone, MapPin } from "lucide-react";
 
 export function Footer() {
@@ -34,24 +35,24 @@ export function Footer() {
             <h4 className="text-[#222222] mb-4">Быстрые ссылки</h4>
             <ul className="space-y-2">
               <li>
-                <a href="#" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
+                <Link to="/about" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
                   О нас
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
+                <Link to="/catalog" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
                   Каталог услуг
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
+                <Link to="/partners" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
                   Для партнёров
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
-                  Блог
-                </a>
+                <Link to="/faq" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
+                  FAQ
+                </Link>
               </li>
             </ul>
           </div>
@@ -61,24 +62,24 @@ export function Footer() {
             <h4 className="text-[#222222] mb-4">Поддержка</h4>
             <ul className="space-y-2">
               <li>
-                <a href="#" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
+                <Link to="/help" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
                   Помощь
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
+                <Link to="/privacy" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
                   Политика конфиденциальности
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
+                <Link to="/terms" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
                   Условия использования
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
+                <Link to="/faq" className="text-gray-600 hover:text-[#00AFAE] transition-colors">
                   FAQ
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -104,7 +105,7 @@ export function Footer() {
         </div>
 
         <div className="border-t border-gray-200 mt-8 pt-8 text-center text-gray-600">
-          <p>&copy; 2025 Toi Zhyry. Все права защищены.</p>
+          <p>&copy; 2026 Toi Zhyry. Все права защищены.</p>
         </div>
       </div>
     </footer>

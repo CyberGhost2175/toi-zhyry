@@ -5,6 +5,7 @@ import { Slider } from "./ui/slider";
 import { Checkbox } from "./ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Input } from "./ui/input";
+import { StoriesStrip } from "./stories/StoriesStrip";
 import { ServicesCatalogApi, type ServicesSortType } from "../data/api/ServicesCatalogApi";
 import { FavoritesApi } from "../data/api/FavoritesApi";
 import type { ServiceCategory } from "../domain/entities/Category";
@@ -315,6 +316,9 @@ export function CatalogPage({ onNavigate, initialCategoryName, initialSearchQuer
 
           {/* Main Content */}
           <main className="flex-1">
+            <div className="mb-6">
+              <StoriesStrip categoryId={selectedCategoryId} />
+            </div>
             <div className="bg-white rounded-2xl p-4 mb-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
               <p className="text-gray-600">
                 {loading ? "Загрузка…" : error ? "Ошибка" : `Найдено ${totalElements} услуг`}

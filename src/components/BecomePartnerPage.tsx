@@ -18,6 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { PartnerApi, PartnerApplication, PartnerRegisterRequest } from '../data/api/PartnerApi';
 import { useAuth } from '../contexts/AuthContext';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { KZ_CITIES, KZ_REGIONS, formatKzPhoneInput, normalizeKzPhone } from '../utils/kzData';
 
 interface BecomePartnerPageProps {
   onNavigate: (page: string) => void;
@@ -41,6 +43,8 @@ const defaultForm: PartnerRegisterRequest = {
 
 export function BecomePartnerPage({ onNavigate }: BecomePartnerPageProps) {
   const { isAuthenticated, user } = useAuth();
+  const role = user?.role?.toUpperCase();
+  const isPartnerByRole = role === 'PARTNER';
   const [activeTab, setActiveTab] = useState('about');
   const [formData, setFormData] = useState<PartnerRegisterRequest>(defaultForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,10 +77,20 @@ export function BecomePartnerPage({ onNavigate }: BecomePartnerPageProps) {
       return;
     }
     setSubmitError(null);
+    if (!formData.city) {
+      setSubmitError("Выберите город");
+      return;
+    }
+    if (normalizeKzPhone(formData.phone).length !== 11) {
+      setSubmitError("Укажите корректный номер телефона в формате KZ");
+      return;
+    }
     setIsSubmitting(true);
     try {
       await partnerApi.submitApplication({
         ...formData,
+        phone: normalizeKzPhone(formData.phone),
+        whatsapp: normalizeKzPhone(formData.whatsapp || ""),
         email: formData.email || user?.email || '',
       });
       setSubmitSuccess(true);
@@ -114,6 +128,9 @@ export function BecomePartnerPage({ onNavigate }: BecomePartnerPageProps) {
         return { label: status || '—', icon: FileText, color: 'text-gray-600 bg-gray-50' };
     }
   };
+
+  const isApprovedStatus = (status?: string) =>
+    status?.toUpperCase() === 'APPROVED' || status?.toUpperCase() === 'ОДОБРЕНО';
 
   return (
     <div className="min-h-screen bg-[#F9F9F9]">
@@ -255,24 +272,29 @@ export function BecomePartnerPage({ onNavigate }: BecomePartnerPageProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                       <div className="space-y-2">
                         <Label htmlFor="city">Город *</Label>
-                        <Input
-                          id="city"
-                          value={formData.city}
-                          onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                          placeholder="Алматы"
-                          required
-                          className="h-12"
-                        />
+                        <Select value={formData.city} onValueChange={(v) => setFormData({ ...formData, city: v })}>
+                          <SelectTrigger id="city" className="h-12">
+                            <SelectValue placeholder="Выберите город" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {KZ_CITIES.map((city) => (
+                              <SelectItem key={city} value={city}>{city}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="region">Регион</Label>
-                        <Input
-                          id="region"
-                          value={formData.region}
-                          onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                          placeholder="Алматинская область"
-                          className="h-12"
-                        />
+                        <Select value={formData.region || ""} onValueChange={(v) => setFormData({ ...formData, region: v })}>
+                          <SelectTrigger id="region" className="h-12">
+                            <SelectValue placeholder="Выберите регион" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {KZ_REGIONS.map((region) => (
+                              <SelectItem key={region} value={region}>{region}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
 
@@ -294,7 +316,7 @@ export function BecomePartnerPage({ onNavigate }: BecomePartnerPageProps) {
                         <Input
                           id="phone"
                           value={formData.phone}
-                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, phone: formatKzPhoneInput(e.target.value) })}
                           placeholder="+7 (777) 123-45-67"
                           required
                           className="h-12"
@@ -320,8 +342,8 @@ export function BecomePartnerPage({ onNavigate }: BecomePartnerPageProps) {
                         <Input
                           id="whatsapp"
                           value={formData.whatsapp}
-                          onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                          placeholder="77771234567"
+                          onChange={(e) => setFormData({ ...formData, whatsapp: formatKzPhoneInput(e.target.value) })}
+                          placeholder="+7 (777) 123-45-67"
                           className="h-12"
                         />
                       </div>
@@ -434,15 +456,31 @@ export function BecomePartnerPage({ onNavigate }: BecomePartnerPageProps) {
                 ) : !myApplication ? (
                   <div className="py-8 text-center text-gray-600">
                     <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                    <p>Вы ещё не подавали заявку на партнёрство.</p>
-                    <p className="text-sm mt-1">Перейдите во вкладку «Подать заявку», чтобы отправить заявку.</p>
-                    <Button
-                      className="mt-4 rounded-full text-white"
-                      style={{ backgroundColor: '#00AFAE' }}
-                      onClick={() => setActiveTab('apply')}
-                    >
-                      Подать заявку
-                    </Button>
+                    {isPartnerByRole ? (
+                      <>
+                        <p>Ваша роль уже обновлена до партнёра.</p>
+                        <p className="text-sm mt-1">Вы можете сразу перейти в кабинет партнёра.</p>
+                        <Button
+                          className="mt-4 rounded-full text-white"
+                          style={{ backgroundColor: '#00AFAE' }}
+                          onClick={() => onNavigate('partner-dashboard')}
+                        >
+                          Перейти в кабинет партнёра
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <p>Вы ещё не подавали заявку на партнёрство.</p>
+                        <p className="text-sm mt-1">Перейдите во вкладку «Подать заявку», чтобы отправить заявку.</p>
+                        <Button
+                          className="mt-4 rounded-full text-white"
+                          style={{ backgroundColor: '#00AFAE' }}
+                          onClick={() => setActiveTab('apply')}
+                        >
+                          Подать заявку
+                        </Button>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -488,6 +526,21 @@ export function BecomePartnerPage({ onNavigate }: BecomePartnerPageProps) {
                       <div className="p-4 bg-red-50 border border-red-100 rounded-lg">
                         <p className="text-sm font-medium text-red-800 mb-1">Причина отклонения</p>
                         <p className="text-sm text-red-700">{myApplication.rejectionReason}</p>
+                      </div>
+                    )}
+                    {(isPartnerByRole || isApprovedStatus(myApplication.status)) && (
+                      <div className="p-4 bg-green-50 border border-green-100 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-green-800">Заявка одобрена</p>
+                          <p className="text-sm text-green-700">Откройте кабинет партнёра для управления услугами и бронированиями.</p>
+                        </div>
+                        <Button
+                          className="rounded-full text-white"
+                          style={{ backgroundColor: '#00AFAE' }}
+                          onClick={() => onNavigate('partner-dashboard')}
+                        >
+                          Перейти в кабинет партнёра
+                        </Button>
                       </div>
                     )}
                     <div className="pt-4 border-t border-gray-100">

@@ -18,6 +18,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import { authorizedFetch } from '../utils/authorizedFetch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { KZ_CITIES, formatKzPhoneInput, normalizeKzPhone } from '../utils/kzData';
 
 interface UserProfileProps {
     onNavigate: (page: string, state?: { serviceId?: string }) => void;
@@ -109,7 +111,7 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
             email: userData?.email,
             firstName: userData?.firstName,
             lastName: userData?.lastName,
-            phone: userData?.phone,
+            phone: formatKzPhoneInput(userData?.phone || ''),
             city: userData?.city,
         });
     };
@@ -126,7 +128,7 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
             const payload = {
                 firstName: editedData.firstName ?? userData?.firstName ?? '',
                 lastName: editedData.lastName ?? userData?.lastName ?? '',
-                phone: editedData.phone ?? userData?.phone ?? '',
+                phone: normalizeKzPhone(editedData.phone ?? userData?.phone ?? ''),
                 city: editedData.city ?? userData?.city ?? '',
             };
 
@@ -412,13 +414,13 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                                 <Input
                                     type="tel"
                                     value={editedData.phone || ''}
-                                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                                    onChange={(e) => handleInputChange('phone', formatKzPhoneInput(e.target.value))}
                                     className="h-12"
                                     placeholder="+7 (___) ___-__-__"
                                 />
                             ) : (
                                 <div className="text-[#222222] bg-[#F9F9F9] px-4 py-3 rounded-xl h-12 flex items-center">
-                                    {userData.phone}
+                                    {formatKzPhoneInput(userData.phone || "") || "—"}
                                 </div>
                             )}
                         </div>
@@ -472,13 +474,21 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                                 Город
                             </Label>
                             {isEditing ? (
-                                <Input
-                                    type="text"
-                                    value={editedData.city || ''}
-                                    onChange={(e) => handleInputChange('city', e.target.value)}
-                                    className="h-12"
-                                    placeholder="Алматы"
-                                />
+                                <Select
+                                  value={editedData.city || ''}
+                                  onValueChange={(v) => handleInputChange('city', v)}
+                                >
+                                  <SelectTrigger className="h-12">
+                                    <SelectValue placeholder="Выберите город" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {KZ_CITIES.map((city) => (
+                                      <SelectItem key={city} value={city}>
+                                        {city}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                             ) : (
                                 <div className="text-[#222222] bg-[#F9F9F9] px-4 py-3 rounded-xl h-12 flex items-center">
                                     {userData.city}

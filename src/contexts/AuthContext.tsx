@@ -13,13 +13,15 @@ interface User {
     phone?: string;
     city?: string;
     role?: string;
+    authProvider?: 'LOCAL' | 'GOOGLE';
+    profileCompleted?: boolean;
 }
 
 interface AuthContextType {
     isAuthenticated: boolean;
     user: User | null;
     token: string | null;
-    login: (token: string, user: User) => void;
+    login: (token: string, user: User, profileCompleted?: boolean) => void;
     logout: () => Promise<void>;
     checkAuth: () => boolean;
     /** Сообщение при истечении сессии (403/401) — показать и перейти на логин */
@@ -49,6 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('authToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
+        localStorage.removeItem('profileCompleted');
         setToken(null);
         setUser(null);
         setIsAuthenticated(false);
@@ -65,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.removeItem('authToken');
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('user');
+            localStorage.removeItem('profileCompleted');
         };
         window.addEventListener(getSessionExpiredEventName(), onSessionExpired);
         return () => window.removeEventListener(getSessionExpiredEventName(), onSessionExpired);
@@ -95,6 +99,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     id: parsedUser?.id ?? idFromToken,
                     phone: parsedUser?.phone,
                     city: parsedUser?.city,
+                    authProvider: parsedUser?.authProvider,
+                    profileCompleted: parsedUser?.profileCompleted,
                 };
                 try {
                     localStorage.setItem('user', JSON.stringify(parsedUser));
@@ -138,7 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (!res.ok) return null;
                 return res.json();
             })
-            .then((data: { user?: User & { role?: string }; role?: string; email?: string; firstName?: string; lastName?: string } | null) => {
+            .then((data: { user?: User & { role?: string; authProvider?: 'LOCAL' | 'GOOGLE'; profileCompleted?: boolean }; role?: string; email?: string; firstName?: string; lastName?: string; authProvider?: 'LOCAL' | 'GOOGLE'; profileCompleted?: boolean } | null) => {
                 if (!data) return;
                 const role = data.user?.role ?? data.role;
                 const updatedUser: User = {
@@ -147,6 +153,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     email: data.user?.email ?? data.email ?? user.email,
                     firstName: data.user?.firstName ?? data.firstName ?? user.firstName,
                     lastName: data.user?.lastName ?? data.lastName ?? user.lastName,
+                    authProvider: data.user?.authProvider ?? data.authProvider ?? user.authProvider,
+                    profileCompleted: data.user?.profileCompleted ?? data.profileCompleted ?? user.profileCompleted,
                 };
                 setUser(updatedUser);
                 try {
@@ -156,9 +164,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .catch(() => {});
     }, [isAuthenticated, token]);
 
-    const login = (newToken: string, newUser: User) => {
+    const login = (newToken: string, newUser: User, profileCompleted?: boolean) => {
         localStorage.setItem('authToken', newToken);
         localStorage.setItem('user', JSON.stringify(newUser));
+        if (typeof profileCompleted === 'boolean') {
+            localStorage.setItem('profileCompleted', String(profileCompleted));
+        }
         setToken(newToken);
         setUser(newUser);
         setIsAuthenticated(true);

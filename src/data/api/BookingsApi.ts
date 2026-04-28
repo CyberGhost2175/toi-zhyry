@@ -52,9 +52,11 @@ export interface Booking {
 
 export interface CreateBookingRequest {
   serviceId: string;
+  variantId?: string;
   eventDate: string;
   eventTime: string;
   guestsCount: number;
+  customerNotes?: string;
   notes?: string;
   extraParams?: Record<string, string>;
 }
@@ -90,10 +92,14 @@ export class BookingsApi {
   constructor(private baseUrl: string = API_BASE_URL) {}
 
   async createBooking(body: CreateBookingRequest): Promise<Booking> {
+    const payload: CreateBookingRequest = {
+      ...body,
+      customerNotes: body.customerNotes ?? body.notes,
+    };
     const response = await authorizedFetch(`${this.baseUrl}/api/v1/bookings`, {
       method: "POST",
       headers: getAuthHeaders(),
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     });
     if (!response.ok) {
       if (response.status === 401) {

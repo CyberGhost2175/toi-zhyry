@@ -4,38 +4,43 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3e37e643-4bfd-409f-a18b-6dd9410329a3" name="Changes" comment="added sorting,filtering">
-      <change afterPath="$PROJECT_DIR$/src/components/notifications/NotificationsBell.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/components/notifications/NotificationsPage.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/components/notifications/notificationNavigation.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/data/api/NotificationsApi.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/utils/authorizedFetch.ts" afterDir="false" />
+    <list default="true" id="3e37e643-4bfd-409f-a18b-6dd9410329a3" name="Changes" comment=" refresh token and notifications added">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/AdminDashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/AdminDashboard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/BecomePartnerPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/BecomePartnerPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/CatalogPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/CatalogPage.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/components/ClientDashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/ClientDashboard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/Footer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/Footer.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/components/Header.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/Header.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/HomePage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/HomePage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/PartnerDashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/PartnerDashboard.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/components/ServiceDetailPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/ServiceDetailPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/auth/LoginPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/auth/LoginPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/auth/RegisterPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/auth/RegisterPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/bookings/BookingDetailPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/bookings/BookingDetailPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/bookings/BookingsLayout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/bookings/BookingsLayout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/notifications/NotificationsBell.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/notifications/NotificationsBell.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/notifications/NotificationsPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/notifications/NotificationsPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/notifications/notificationNavigation.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/notifications/notificationNavigation.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/components/profile/ClientProfileLayout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/profile/ClientProfileLayout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/reviews/MyReviewsPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/reviews/MyReviewsPage.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/contexts/AuthContext.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/contexts/AuthContext.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/data/api/AdminApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/AdminApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/api/AdminCategoriesApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/AdminCategoriesApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/api/AdminServicesApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/AdminServicesApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/api/AdminUsersApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/AdminUsersApi.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/data/api/AuthApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/AuthApi.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/data/api/BookingsApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/BookingsApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/api/CartApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/CartApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/api/FavoritesApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/FavoritesApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/api/FilesApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/FilesApi.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/data/api/NotificationsApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/NotificationsApi.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/data/api/PartnerApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/PartnerApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/api/PartnerBookingsApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/PartnerBookingsApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/api/PartnerServicesApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/PartnerServicesApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/api/ReviewsApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/ReviewsApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/api/ServicesAvailabilityApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/ServicesAvailabilityApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/api/ServicesCatalogApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/api/ServicesCatalogApi.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/data/repositories/AuthRepositoryImpl.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/repositories/AuthRepositoryImpl.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/domain/entities/User.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/domain/entities/User.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/domain/repositories/AuthRepository.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/domain/repositories/AuthRepository.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/domain/usecases/LoginUseCase.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/domain/usecases/LoginUseCase.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/domain/usecases/RegisterUseCase.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/domain/usecases/RegisterUseCase.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/utils/sessionExpired.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/sessionExpired.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/setupProxy.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/setupProxy.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/authorizedFetch.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/authorizedFetch.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -127,7 +132,13 @@
       <workItem from="1772047166201" duration="4494000" />
       <workItem from="1773910916362" duration="254000" />
       <workItem from="1774550977210" duration="7257000" />
-      <workItem from="1776008333657" duration="1542000" />
+      <workItem from="1776008333657" duration="2197000" />
+      <workItem from="1776072096705" duration="1212000" />
+      <workItem from="1776695575247" duration="608000" />
+      <workItem from="1776771752184" duration="609000" />
+      <workItem from="1776773264685" duration="24000" />
+      <workItem from="1777139715052" duration="3982000" />
+      <workItem from="1777307700031" duration="2057000" />
     </task>
     <task id="LOCAL-00001" summary="register and auth implemented">
       <option name="closed" value="true" />
@@ -153,7 +164,15 @@
       <option name="project" value="LOCAL" />
       <updated>1774641466307</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary=" refresh token and notifications added">
+      <option name="closed" value="true" />
+      <created>1776018943562</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1776018943562</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -166,6 +185,7 @@
     <MESSAGE value="register and auth implemented" />
     <MESSAGE value="added bookings,reviews,cart,calendar,favourites" />
     <MESSAGE value="added sorting,filtering" />
-    <option name="LAST_COMMIT_MESSAGE" value="added sorting,filtering" />
+    <MESSAGE value=" refresh token and notifications added" />
+    <option name="LAST_COMMIT_MESSAGE" value=" refresh token and notifications added" />
   </component>
 </project>

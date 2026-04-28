@@ -19,6 +19,9 @@ export class LoginUseCase {
             } else {
                 localStorage.removeItem('refreshToken');
             }
+            if (typeof response.profileCompleted === 'boolean') {
+                localStorage.setItem('profileCompleted', String(response.profileCompleted));
+            }
             localStorage.setItem('user', JSON.stringify(response.user));
         }
 

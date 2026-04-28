@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Users,
   Briefcase,
@@ -14,6 +14,9 @@ import {
   FolderTree,
   Pencil,
   Trash2,
+  Bell,
+  MessageSquare,
+  CreditCard,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
@@ -27,6 +30,7 @@ import {
   PartnerApplicationStatus,
   PartnerDirectoryItem,
   PartnerDirectoryResponse,
+  type AdminTestNotificationRequest,
 } from "../data/api/AdminApi";
 import {
   Dialog,
@@ -65,10 +69,22 @@ import {
   CreateCategoryRequest,
   UpdateCategoryRequest,
 } from "../data/api/AdminCategoriesApi";
+import {
+  AdminReviewsApi,
+  type AdminReviewRow,
+  type AdminReviewsPageResponse,
+} from "../data/api/AdminReviewsApi";
+import {
+  AdminSubscriptionPlansApi,
+  type CreateSubscriptionPlanRequest,
+  type SubscriptionPlan,
+  type UpdateSubscriptionPlanRequest,
+} from "../data/api/AdminSubscriptionPlansApi";
 import { ImageWithFallback } from "./ImageWithFallback";
 import { getImageUrl } from "../utils/imageUrl";
 import { getPriceTypeLabel } from "../utils/priceType";
 import { toast } from "sonner";
+import { useAuth } from "../contexts/AuthContext";
 import { Switch } from "./ui/switch";
 import {
   DropdownMenu,
@@ -77,6 +93,13 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
+import {
+  AttributesApi,
+  type CategoryAttributeBinding,
+  type CreateAdminAttributeRequest,
+} from "../data/api/AttributesApi";
+import { KZ_CITIES, formatKzPhoneInput, normalizeKzPhone } from "../utils/kzData";
+import { AdminStoriesSection } from "./stories/AdminStoriesSection";
 
 interface AdminDashboardProps {
   onNavigate: (page: string) => void;
@@ -107,7 +130,19 @@ function formatDate(s: string) {
 }
 
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
-  const [activeSection, setActiveSection] = useState<"applications" | "partners" | "users" | "services" | "categories">("applications");
+  const { user } = useAuth();
+  const [activeSection, setActiveSection] = useState<
+    | "applications"
+    | "partners"
+    | "users"
+    | "services"
+    | "reviews-moderation"
+    | "attributes"
+    | "categories"
+    | "subscription-plans"
+    | "stories"
+    | "notifications-test"
+  >("applications");
   const [applicationsStatusFilter, setApplicationsStatusFilter] = useState<PartnerApplicationStatus>("PENDING");
   const [applications, setApplications] = useState<PartnerApplicationItem[]>([]);
   const [applicationsLoading, setApplicationsLoading] = useState(false);
@@ -215,11 +250,93 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const [categoryEditSubmitting, setCategoryEditSubmitting] = useState(false);
   const [categoryDeleteTarget, setCategoryDeleteTarget] = useState<AdminCategory | null>(null);
   const [categoryDeleteSubmitting, setCategoryDeleteSubmitting] = useState(false);
+  const [attributesData, setAttributesData] = useState<{ content: unknown[]; totalElements: number; totalPages: number } | null>(null);
+  const [attributesPage, setAttributesPage] = useState(0);
+  const [attributesSearch, setAttributesSearch] = useState("");
+  const [attributesLoading, setAttributesLoading] = useState(false);
+  const [attributeCreateOpen, setAttributeCreateOpen] = useState(false);
+  const [attributeCreateSubmitting, setAttributeCreateSubmitting] = useState(false);
+  const [attributeCreateForm, setAttributeCreateForm] = useState<CreateAdminAttributeRequest>({
+    key: "",
+    type: "STRING",
+    matchStrategy: "SINGLE_EQ",
+    storageKeys: { value: "" },
+    labelRu: "",
+    labelKk: "",
+    unit: "",
+    validationRules: null,
+  });
+  const [attributeDeleteTarget, setAttributeDeleteTarget] = useState<{ id: string; key: string } | null>(null);
+  const [attributeDeleteSubmitting, setAttributeDeleteSubmitting] = useState(false);
+  const [attributeEditTarget, setAttributeEditTarget] = useState<{ id: string; key: string } | null>(null);
+  const [attributeEditForm, setAttributeEditForm] = useState({
+    labelRu: "",
+    labelKk: "",
+    unit: "",
+  });
+  const [attributeEditSubmitting, setAttributeEditSubmitting] = useState(false);
+  const [selectedCategoryForBindings, setSelectedCategoryForBindings] = useState<string>("");
+  const [categoryBindings, setCategoryBindings] = useState<CategoryAttributeBinding[]>([]);
+  const [bindingsLoading, setBindingsLoading] = useState(false);
+  const [bindingForm, setBindingForm] = useState({
+    attributeId: "",
+    isRequired: false,
+    isFilterable: true,
+    sortOrder: 1,
+  });
+
+  const [testNotifTitle, setTestNotifTitle] = useState("Тест уведомления");
+  const [testNotifMessage, setTestNotifMessage] = useState("Проверка каналов доставки из админ-панели.");
+  const [testNotifRecipientEmail, setTestNotifRecipientEmail] = useState("");
+  const [testNotifPush, setTestNotifPush] = useState(true);
+  const [testNotifEmailChannel, setTestNotifEmailChannel] = useState(true);
+  const [testNotifSms, setTestNotifSms] = useState(false);
+  const [testNotifSubmitting, setTestNotifSubmitting] = useState(false);
+
+  const [adminReviewsData, setAdminReviewsData] = useState<AdminReviewsPageResponse | null>(null);
+  const [adminReviewsPage, setAdminReviewsPage] = useState(0);
+  const [adminReviewsSize] = useState(20);
+  const [adminReviewsLoading, setAdminReviewsLoading] = useState(false);
+  const [adminReviewsError, setAdminReviewsError] = useState<string | null>(null);
+  const [reviewDeleteTarget, setReviewDeleteTarget] = useState<AdminReviewRow | null>(null);
+  const [reviewDeleteSubmitting, setReviewDeleteSubmitting] = useState(false);
+  const [reviewActionId, setReviewActionId] = useState<string | null>(null);
+
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
+  const [subscriptionPlansLoading, setSubscriptionPlansLoading] = useState(false);
+  const [subscriptionPlansError, setSubscriptionPlansError] = useState<string | null>(null);
+  const [planCreateOpen, setPlanCreateOpen] = useState(false);
+  const [planCreateForm, setPlanCreateForm] = useState<CreateSubscriptionPlanRequest>({
+    name: "",
+    slug: "",
+    description: "",
+    price: 0,
+    durationDays: 30,
+    isFree: false,
+    displayOrder: 0,
+  });
+  const [planCreateSubmitting, setPlanCreateSubmitting] = useState(false);
+  const [planEditTarget, setPlanEditTarget] = useState<SubscriptionPlan | null>(null);
+  const [planEditForm, setPlanEditForm] = useState<UpdateSubscriptionPlanRequest>({
+    name: "",
+    description: "",
+    price: 0,
+    durationDays: 30,
+    isFree: false,
+    displayOrder: 0,
+  });
+  const [planEditSubmitting, setPlanEditSubmitting] = useState(false);
+  const [planDeactivateTarget, setPlanDeactivateTarget] = useState<SubscriptionPlan | null>(null);
+  const [planDeactivateSubmitting, setPlanDeactivateSubmitting] = useState(false);
+  const [planActionId, setPlanActionId] = useState<string | null>(null);
 
   const adminApi = new AdminApi();
   const adminServicesApi = new AdminServicesApi();
   const adminUsersApi = new AdminUsersApi();
   const adminCategoriesApi = new AdminCategoriesApi();
+  const attributesApi = new AttributesApi();
+  const adminReviewsApi = new AdminReviewsApi();
+  const adminSubscriptionPlansApi = new AdminSubscriptionPlansApi();
 
   const loadApplications = async () => {
     setApplicationsLoading(true);
@@ -398,7 +515,10 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     }
     setCreateUserSubmitting(true);
     try {
-      await adminUsersApi.createUser(createUserForm);
+      await adminUsersApi.createUser({
+        ...createUserForm,
+        phone: normalizeKzPhone(createUserForm.phone || ""),
+      });
       toast.success("Пользователь создан");
       setCreateUserOpen(false);
       setCreateUserForm({ email: "", password: "", firstName: "", lastName: "", phone: "", city: "", role: "USER", emailVerified: false });
@@ -416,7 +536,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
-      phone: user.phone || "",
+      phone: formatKzPhoneInput(user.phone || ""),
       city: user.city || "",
     });
   };
@@ -425,11 +545,20 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     if (!editUserTarget) return;
     setEditUserSubmitting(true);
     try {
-      await adminUsersApi.updateUser(editUserTarget.id, editUserForm);
+      await adminUsersApi.updateUser(editUserTarget.id, {
+        ...editUserForm,
+        phone: normalizeKzPhone(editUserForm.phone || ""),
+      });
       toast.success("Пользователь обновлён");
       setEditUserTarget(null);
       loadUsers();
-      if (selectedUser?.id === editUserTarget.id) setSelectedUser({ ...selectedUser, ...editUserForm });
+      if (selectedUser?.id === editUserTarget.id) {
+        setSelectedUser({
+          ...selectedUser,
+          ...editUserForm,
+          phone: normalizeKzPhone(editUserForm.phone || ""),
+        });
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка обновления");
     } finally {
@@ -563,8 +692,178 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   };
 
   useEffect(() => {
-    if (activeSection === "categories") loadCategories();
+    if (activeSection === "categories" || activeSection === "attributes") loadCategories();
   }, [activeSection]);
+
+  const loadAttributes = async () => {
+    setAttributesLoading(true);
+    try {
+      const data = await attributesApi.getAdminAttributes({
+        search: attributesSearch.trim() || undefined,
+        page: attributesPage,
+        size: 20,
+      });
+      setAttributesData({
+        content: data.content || [],
+        totalElements: data.totalElements || 0,
+        totalPages: data.totalPages || 0,
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка загрузки атрибутов");
+      setAttributesData({ content: [], totalElements: 0, totalPages: 0 });
+    } finally {
+      setAttributesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSection === "attributes") loadAttributes();
+  }, [activeSection, attributesPage, attributesSearch]);
+
+  const loadCategoryBindings = async (categoryId: string) => {
+    if (!categoryId) {
+      setCategoryBindings([]);
+      return;
+    }
+    setBindingsLoading(true);
+    try {
+      const rows = await attributesApi.getCategoryAttributes(categoryId);
+      setCategoryBindings(rows || []);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка загрузки привязок");
+      setCategoryBindings([]);
+    } finally {
+      setBindingsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSection !== "attributes") return;
+    if (selectedCategoryForBindings) {
+      void loadCategoryBindings(selectedCategoryForBindings);
+    }
+  }, [activeSection, selectedCategoryForBindings]);
+
+  const handleCreateAttribute = async () => {
+    if (!attributeCreateForm.key.trim() || !attributeCreateForm.labelRu.trim()) {
+      toast.error("Заполните key и labelRu");
+      return;
+    }
+    if (attributeCreateForm.matchStrategy === "RANGE_CONTAINS") {
+      if (!attributeCreateForm.storageKeys.min || !attributeCreateForm.storageKeys.max) {
+        toast.error("Для RANGE_CONTAINS укажите storageKeys.min и storageKeys.max");
+        return;
+      }
+    } else if (!attributeCreateForm.storageKeys.value) {
+      toast.error("Укажите storageKeys.value");
+      return;
+    }
+    setAttributeCreateSubmitting(true);
+    try {
+      await attributesApi.createAdminAttribute({
+        ...attributeCreateForm,
+        key: attributeCreateForm.key.trim(),
+        labelRu: attributeCreateForm.labelRu.trim(),
+        labelKk: attributeCreateForm.labelKk?.trim() || undefined,
+        unit: attributeCreateForm.unit?.trim() || undefined,
+      });
+      toast.success("Атрибут создан");
+      setAttributeCreateOpen(false);
+      setAttributeCreateForm({
+        key: "",
+        type: "STRING",
+        matchStrategy: "SINGLE_EQ",
+        storageKeys: { value: "" },
+        labelRu: "",
+        labelKk: "",
+        unit: "",
+        validationRules: null,
+      });
+      await loadAttributes();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось создать атрибут");
+    } finally {
+      setAttributeCreateSubmitting(false);
+    }
+  };
+
+  const handleDeleteAttribute = async () => {
+    if (!attributeDeleteTarget) return;
+    setAttributeDeleteSubmitting(true);
+    try {
+      await attributesApi.deleteAdminAttribute(attributeDeleteTarget.id);
+      toast.success("Атрибут удалён");
+      setAttributeDeleteTarget(null);
+      await loadAttributes();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось удалить атрибут");
+    } finally {
+      setAttributeDeleteSubmitting(false);
+    }
+  };
+
+  const handleUpdateAttribute = async () => {
+    if (!attributeEditTarget) return;
+    if (!attributeEditForm.labelRu.trim()) {
+      toast.error("Укажите labelRu");
+      return;
+    }
+    setAttributeEditSubmitting(true);
+    try {
+      await attributesApi.updateAdminAttribute(attributeEditTarget.id, {
+        labelRu: attributeEditForm.labelRu.trim(),
+        labelKk: attributeEditForm.labelKk.trim() || undefined,
+        unit: attributeEditForm.unit.trim() || undefined,
+      });
+      toast.success("Атрибут обновлён");
+      setAttributeEditTarget(null);
+      await loadAttributes();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось обновить атрибут");
+    } finally {
+      setAttributeEditSubmitting(false);
+    }
+  };
+
+  const handleBindAttribute = async () => {
+    if (!selectedCategoryForBindings || !bindingForm.attributeId) {
+      toast.error("Выберите категорию и атрибут");
+      return;
+    }
+    try {
+      await attributesApi.bindAttributeToCategory(selectedCategoryForBindings, bindingForm);
+      toast.success("Атрибут привязан к категории");
+      await loadCategoryBindings(selectedCategoryForBindings);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось привязать атрибут");
+    }
+  };
+
+  const handleUpdateBinding = async (row: CategoryAttributeBinding) => {
+    if (!selectedCategoryForBindings) return;
+    try {
+      await attributesApi.updateCategoryAttributeBinding(selectedCategoryForBindings, row.attributeId, {
+        isRequired: row.isRequired,
+        isFilterable: row.isFilterable,
+        sortOrder: row.sortOrder,
+      });
+      toast.success("Привязка обновлена");
+      await loadCategoryBindings(selectedCategoryForBindings);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось обновить привязку");
+    }
+  };
+
+  const handleUnbindAttribute = async (attributeId: string) => {
+    if (!selectedCategoryForBindings) return;
+    try {
+      await attributesApi.unbindAttributeFromCategory(selectedCategoryForBindings, attributeId);
+      toast.success("Атрибут отвязан");
+      await loadCategoryBindings(selectedCategoryForBindings);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось отвязать атрибут");
+    }
+  };
 
   const handleCreateCategory = async () => {
     if (!categoryCreateForm.nameRu?.trim() || !categoryCreateForm.slug?.trim()) {
@@ -643,6 +942,11 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     if (activeSection === "services" && servicesTab === "all") loadAllServices();
   }, [activeSection, servicesTab, servicesPage]);
 
+  useEffect(() => {
+    if (activeSection !== "notifications-test" || !user?.email) return;
+    setTestNotifRecipientEmail((prev) => (prev.trim() === "" ? user.email! : prev));
+  }, [activeSection, user?.email]);
+
   const openServiceDetail = async (id: string) => {
     setServiceDetailLoading(true);
     setServiceDetailOpen(true);
@@ -698,6 +1002,222 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       toast.error("Ошибка смены статуса", {
         description: e instanceof Error ? e.message : undefined,
       });
+    }
+  };
+
+  const handleSendTestNotification = async () => {
+    const email = testNotifRecipientEmail.trim();
+    if (!email) {
+      toast.error("Укажите email получателя");
+      return;
+    }
+    if (!testNotifTitle.trim()) {
+      toast.error("Укажите заголовок");
+      return;
+    }
+    setTestNotifSubmitting(true);
+    try {
+      const payload: AdminTestNotificationRequest = {
+        title: testNotifTitle.trim(),
+        message: testNotifMessage.trim() || " ",
+        recipientEmail: email,
+        push: testNotifPush,
+        email: testNotifEmailChannel,
+        sms: testNotifSms,
+      };
+      const res = await adminApi.sendTestNotification(payload);
+      toast.success(res.message || "Тестовое уведомление отправлено");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка отправки");
+    } finally {
+      setTestNotifSubmitting(false);
+    }
+  };
+
+  const isReviewPubliclyVisible = (r: AdminReviewRow) => {
+    if (r.isVisible === false || r.visible === false) return false;
+    return true;
+  };
+
+  const loadAdminReviews = useCallback(async () => {
+    setAdminReviewsLoading(true);
+    setAdminReviewsError(null);
+    try {
+      const data = await adminReviewsApi.getAdminReviews({ page: adminReviewsPage, size: adminReviewsSize });
+      setAdminReviewsData(data);
+    } catch (e) {
+      setAdminReviewsData(null);
+      setAdminReviewsError(e instanceof Error ? e.message : "Ошибка загрузки");
+    } finally {
+      setAdminReviewsLoading(false);
+    }
+  }, [adminReviewsPage, adminReviewsSize]);
+
+  useEffect(() => {
+    if (activeSection !== "reviews-moderation") return;
+    void loadAdminReviews();
+  }, [activeSection, loadAdminReviews]);
+
+  const confirmDeleteReview = async () => {
+    if (!reviewDeleteTarget) return;
+    setReviewDeleteSubmitting(true);
+    try {
+      const res = await adminReviewsApi.deleteReview(reviewDeleteTarget.id);
+      toast.success(res.message || "Отзыв удалён");
+      setReviewDeleteTarget(null);
+      await loadAdminReviews();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось удалить");
+    } finally {
+      setReviewDeleteSubmitting(false);
+    }
+  };
+
+  const handleHideReview = async (r: AdminReviewRow) => {
+    setReviewActionId(r.id);
+    try {
+      const res = await adminReviewsApi.hideReview(r.id);
+      toast.success(res.message || "Отзыв скрыт");
+      await loadAdminReviews();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setReviewActionId(null);
+    }
+  };
+
+  const handleShowReview = async (r: AdminReviewRow) => {
+    setReviewActionId(r.id);
+    try {
+      const res = await adminReviewsApi.showReview(r.id);
+      toast.success(res.message || "Отзыв снова виден");
+      await loadAdminReviews();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setReviewActionId(null);
+    }
+  };
+
+  const isSubscriptionPlanActive = (status: string) => (status || "").toUpperCase() === "ACTIVE";
+
+  const loadSubscriptionPlans = useCallback(async () => {
+    setSubscriptionPlansLoading(true);
+    setSubscriptionPlansError(null);
+    try {
+      const list = await adminSubscriptionPlansApi.listPlans();
+      setSubscriptionPlans(list);
+    } catch (e) {
+      setSubscriptionPlans([]);
+      setSubscriptionPlansError(e instanceof Error ? e.message : "Ошибка загрузки");
+    } finally {
+      setSubscriptionPlansLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeSection !== "subscription-plans") return;
+    void loadSubscriptionPlans();
+  }, [activeSection, loadSubscriptionPlans]);
+
+  const handleCreateSubscriptionPlan = async () => {
+    if (!planCreateForm.name.trim() || !planCreateForm.slug.trim()) {
+      toast.error("Укажите название и slug");
+      return;
+    }
+    setPlanCreateSubmitting(true);
+    try {
+      await adminSubscriptionPlansApi.createPlan({
+        ...planCreateForm,
+        name: planCreateForm.name.trim(),
+        slug: planCreateForm.slug.trim(),
+        description: planCreateForm.description.trim(),
+        price: Number(planCreateForm.price) || 0,
+        durationDays: Math.max(1, Math.floor(Number(planCreateForm.durationDays)) || 1),
+        displayOrder: Math.floor(Number(planCreateForm.displayOrder)) || 0,
+      });
+      toast.success("Тариф создан");
+      setPlanCreateOpen(false);
+      setPlanCreateForm({
+        name: "",
+        slug: "",
+        description: "",
+        price: 0,
+        durationDays: 30,
+        isFree: false,
+        displayOrder: 0,
+      });
+      await loadSubscriptionPlans();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка создания");
+    } finally {
+      setPlanCreateSubmitting(false);
+    }
+  };
+
+  const openEditSubscriptionPlan = (p: SubscriptionPlan) => {
+    setPlanEditTarget(p);
+    setPlanEditForm({
+      name: p.name,
+      description: p.description || "",
+      price: p.price,
+      durationDays: p.durationDays,
+      isFree: p.isFree,
+      displayOrder: p.displayOrder,
+    });
+  };
+
+  const saveEditSubscriptionPlan = async () => {
+    if (!planEditTarget) return;
+    if (!planEditForm.name.trim()) {
+      toast.error("Укажите название");
+      return;
+    }
+    setPlanEditSubmitting(true);
+    try {
+      await adminSubscriptionPlansApi.updatePlan(planEditTarget.id, {
+        ...planEditForm,
+        name: planEditForm.name.trim(),
+        description: planEditForm.description.trim(),
+        price: Number(planEditForm.price) || 0,
+        durationDays: Math.max(1, Math.floor(Number(planEditForm.durationDays)) || 1),
+        displayOrder: Math.floor(Number(planEditForm.displayOrder)) || 0,
+      });
+      toast.success("Тариф обновлён");
+      setPlanEditTarget(null);
+      await loadSubscriptionPlans();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка сохранения");
+    } finally {
+      setPlanEditSubmitting(false);
+    }
+  };
+
+  const handleActivatePlan = async (p: SubscriptionPlan) => {
+    setPlanActionId(p.id);
+    try {
+      const res = await adminSubscriptionPlansApi.activatePlan(p.id);
+      toast.success(res.message || "Тариф активирован");
+      await loadSubscriptionPlans();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setPlanActionId(null);
+    }
+  };
+
+  const confirmDeactivatePlan = async () => {
+    if (!planDeactivateTarget) return;
+    setPlanDeactivateSubmitting(true);
+    try {
+      const res = await adminSubscriptionPlansApi.deactivatePlan(planDeactivateTarget.id);
+      toast.success(res.message || "Тариф скрыт из каталога");
+      setPlanDeactivateTarget(null);
+      await loadSubscriptionPlans();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setPlanDeactivateSubmitting(false);
     }
   };
 
@@ -763,6 +1283,17 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 <span>Услуги</span>
               </button>
               <button
+                onClick={() => setActiveSection("reviews-moderation")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                  activeSection === "reviews-moderation"
+                    ? "bg-[#00AFAE]/10 text-[#00AFAE]"
+                    : "text-gray-600 hover:bg-[#F9F9F9]"
+                }`}
+              >
+                <MessageSquare className="w-5 h-5" />
+                <span>Отзывы</span>
+              </button>
+              <button
                 onClick={() => setActiveSection("categories")}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
                   activeSection === "categories"
@@ -772,6 +1303,50 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               >
                 <FolderTree className="w-5 h-5" />
                 <span>Категории</span>
+              </button>
+              <button
+                onClick={() => setActiveSection("attributes")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                  activeSection === "attributes"
+                    ? "bg-[#00AFAE]/10 text-[#00AFAE]"
+                    : "text-gray-600 hover:bg-[#F9F9F9]"
+                }`}
+              >
+                <FolderTree className="w-5 h-5" />
+                <span>Атрибуты</span>
+              </button>
+              <button
+                onClick={() => setActiveSection("subscription-plans")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                  activeSection === "subscription-plans"
+                    ? "bg-[#00AFAE]/10 text-[#00AFAE]"
+                    : "text-gray-600 hover:bg-[#F9F9F9]"
+                }`}
+              >
+                <CreditCard className="w-5 h-5" />
+                <span>Тарифы</span>
+              </button>
+              <button
+                onClick={() => setActiveSection("stories")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                  activeSection === "stories"
+                    ? "bg-[#00AFAE]/10 text-[#00AFAE]"
+                    : "text-gray-600 hover:bg-[#F9F9F9]"
+                }`}
+              >
+                <Eye className="w-5 h-5" />
+                <span>Сторис</span>
+              </button>
+              <button
+                onClick={() => setActiveSection("notifications-test")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                  activeSection === "notifications-test"
+                    ? "bg-[#00AFAE]/10 text-[#00AFAE]"
+                    : "text-gray-600 hover:bg-[#F9F9F9]"
+                }`}
+              >
+                <Bell className="w-5 h-5" />
+                <span>Тест уведомлений</span>
               </button>
             </nav>
           </div>
@@ -796,7 +1371,12 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               {activeSection === "partners" && "Справочник партнёров"}
               {activeSection === "users" && "Пользователи"}
               {activeSection === "services" && "Управление услугами"}
+              {activeSection === "reviews-moderation" && "Модерация отзывов"}
               {activeSection === "categories" && "Категории услуг"}
+              {activeSection === "attributes" && "Атрибуты и привязки"}
+              {activeSection === "subscription-plans" && "Тарифные планы"}
+              {activeSection === "stories" && "Модерация сторис"}
+              {activeSection === "notifications-test" && "Тест уведомлений"}
             </h1>
 
             {/* Заявки на сотрудничество */}
@@ -1051,7 +1631,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                               <TableHead>Партнёр</TableHead>
                               <TableHead>Категория</TableHead>
                               <TableHead>Город</TableHead>
-                              <TableHead className="w-[120px]">Действия</TableHead>
+                              <TableHead className="w-[160px]">Действия</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1195,6 +1775,379 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               </Card>
             )}
 
+            {/* Модерация отзывов */}
+            {activeSection === "reviews-moderation" && (
+              <div className="space-y-4">
+                {adminReviewsError && (
+                  <div className="text-red-600 bg-red-50 border border-red-200 rounded-xl p-4 text-sm">{adminReviewsError}</div>
+                )}
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-0">
+                    {adminReviewsLoading ? (
+                      <div className="p-12 text-center text-gray-500">Загрузка...</div>
+                    ) : !adminReviewsData || adminReviewsData.empty ? (
+                      <div className="p-12 text-center text-gray-500">Отзывов нет</div>
+                    ) : (
+                      <>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Услуга</TableHead>
+                              <TableHead>Автор</TableHead>
+                              <TableHead>Оценка</TableHead>
+                              <TableHead>Комментарий</TableHead>
+                              <TableHead>Дата</TableHead>
+                              <TableHead>Виден</TableHead>
+                              <TableHead className="w-[220px]">Действия</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(adminReviewsData.content || []).map((r) => {
+                              const visible = isReviewPubliclyVisible(r);
+                              const busy = reviewActionId === r.id;
+                              return (
+                                <TableRow key={r.id}>
+                                  <TableCell className="font-medium text-[#222222] max-w-[160px] truncate">
+                                    {r.serviceName || "—"}
+                                  </TableCell>
+                                  <TableCell className="max-w-[120px] truncate">{r.userFullName || "—"}</TableCell>
+                                  <TableCell>{Number(r.rating) || 0}</TableCell>
+                                  <TableCell className="max-w-[200px] truncate text-gray-600">{r.comment || "—"}</TableCell>
+                                  <TableCell className="text-sm text-gray-500 whitespace-nowrap">
+                                    {r.createdAt ? new Date(r.createdAt).toLocaleDateString("ru-RU") : "—"}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge className={visible ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}>
+                                      {visible ? "Да" : "Скрыт"}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-wrap gap-1">
+                                      {visible ? (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          disabled={busy}
+                                          onClick={() => void handleHideReview(r)}
+                                        >
+                                          Скрыть
+                                        </Button>
+                                      ) : (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          disabled={busy}
+                                          onClick={() => void handleShowReview(r)}
+                                        >
+                                          Показать
+                                        </Button>
+                                      )}
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-red-600 border-red-200 hover:bg-red-50"
+                                        disabled={busy}
+                                        onClick={() => setReviewDeleteTarget(r)}
+                                      >
+                                        <Trash2 className="w-4 h-4 mr-1" />
+                                        Удалить
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                        {adminReviewsData.totalPages > 1 && (
+                          <div className="flex items-center justify-between p-4 border-t">
+                            <span className="text-sm text-gray-600">Всего: {adminReviewsData.totalElements}</span>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={adminReviewsPage === 0}
+                                onClick={() => setAdminReviewsPage((p) => Math.max(0, p - 1))}
+                              >
+                                Назад
+                              </Button>
+                              <span className="flex items-center px-2 text-sm">
+                                {adminReviewsPage + 1} / {adminReviewsData.totalPages}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={adminReviewsPage >= adminReviewsData.totalPages - 1}
+                                onClick={() => setAdminReviewsPage((p) => p + 1)}
+                              >
+                                Вперёд
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {activeSection === "attributes" && (
+              <div className="space-y-4">
+                <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+                  <Input
+                    placeholder="Поиск атрибутов по key или label"
+                    value={attributesSearch}
+                    onChange={(e) => {
+                      setAttributesPage(0);
+                      setAttributesSearch(e.target.value);
+                    }}
+                    className="md:max-w-md"
+                  />
+                  <Button onClick={() => setAttributeCreateOpen(true)} className="bg-[#00AFAE] hover:bg-[#00AFAE]/90">
+                    Создать атрибут
+                  </Button>
+                </div>
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-0">
+                    {attributesLoading ? (
+                      <div className="p-10 text-center text-gray-500">Загрузка...</div>
+                    ) : (attributesData?.content?.length || 0) === 0 ? (
+                      <div className="p-10 text-center text-gray-500">Атрибутов пока нет</div>
+                    ) : (
+                      <>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Key</TableHead>
+                              <TableHead>Тип</TableHead>
+                              <TableHead>Стратегия</TableHead>
+                              <TableHead>Label RU</TableHead>
+                              <TableHead>Storage keys</TableHead>
+                              <TableHead className="w-[120px]">Действия</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(attributesData?.content as Array<Record<string, unknown>>).map((attr) => (
+                              <TableRow key={String(attr.attributeId || attr.id || "")}>
+                                <TableCell className="font-mono text-xs">{String(attr.key || "—")}</TableCell>
+                                <TableCell>{String(attr.type || "—")}</TableCell>
+                                <TableCell>{String(attr.matchStrategy || "—")}</TableCell>
+                                <TableCell>{String(attr.labelRu || "—")}</TableCell>
+                                <TableCell className="font-mono text-xs">
+                                  {JSON.stringify(attr.storageKeys || {})}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setAttributeEditTarget({
+                                          id: String(attr.attributeId || attr.id || ""),
+                                          key: String(attr.key || ""),
+                                        });
+                                        setAttributeEditForm({
+                                          labelRu: String(attr.labelRu || ""),
+                                          labelKk: String(attr.labelKk || ""),
+                                          unit: String(attr.unit || ""),
+                                        });
+                                      }}
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-red-600 hover:text-red-700"
+                                      onClick={() =>
+                                        setAttributeDeleteTarget({
+                                          id: String(attr.attributeId || attr.id || ""),
+                                          key: String(attr.key || ""),
+                                        })
+                                      }
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        {(attributesData?.totalPages || 0) > 1 && (
+                          <div className="flex items-center justify-between p-4 border-t">
+                            <span className="text-sm text-gray-600">Всего: {attributesData?.totalElements || 0}</span>
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" disabled={attributesPage === 0} onClick={() => setAttributesPage((p) => Math.max(0, p - 1))}>
+                                Назад
+                              </Button>
+                              <span className="flex items-center px-2 text-sm">
+                                {attributesPage + 1} / {attributesData?.totalPages || 1}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={attributesPage >= (attributesData?.totalPages || 1) - 1}
+                                onClick={() => setAttributesPage((p) => p + 1)}
+                              >
+                                Вперёд
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-[#222222]">Привязки атрибутов к категориям</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Категория</Label>
+                        <Select value={selectedCategoryForBindings} onValueChange={setSelectedCategoryForBindings}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Выберите категорию" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id}>
+                                {cat.nameRu || cat.slug}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Атрибут</Label>
+                        <Select value={bindingForm.attributeId} onValueChange={(v) => setBindingForm((prev) => ({ ...prev, attributeId: v }))}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Выберите атрибут" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(attributesData?.content as Array<Record<string, unknown>> || []).map((attr) => (
+                              <SelectItem key={String(attr.attributeId || attr.id || "")} value={String(attr.attributeId || attr.id || "")}>
+                                {String(attr.key || "")}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Порядок</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={bindingForm.sortOrder}
+                          onChange={(e) => setBindingForm((prev) => ({ ...prev, sortOrder: Number(e.target.value) || 1 }))}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-4">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={bindingForm.isRequired}
+                          onChange={(e) => setBindingForm((prev) => ({ ...prev, isRequired: e.target.checked }))}
+                        />
+                        Обязательный
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={bindingForm.isFilterable}
+                          onChange={(e) => setBindingForm((prev) => ({ ...prev, isFilterable: e.target.checked }))}
+                        />
+                        Фильтруемый
+                      </label>
+                      <Button onClick={() => void handleBindAttribute()} className="bg-[#00AFAE] hover:bg-[#00AFAE]/90">
+                        Привязать
+                      </Button>
+                    </div>
+
+                    {bindingsLoading ? (
+                      <p className="text-sm text-gray-500">Загрузка привязок...</p>
+                    ) : categoryBindings.length === 0 ? (
+                      <p className="text-sm text-gray-500">Для выбранной категории привязок пока нет.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {categoryBindings.map((row) => (
+                          <div key={row.attributeId} className="border border-gray-200 rounded-xl p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                            <div>
+                              <p className="font-medium text-[#222222]">{row.attribute?.key || row.attributeId}</p>
+                              <p className="text-xs text-gray-600">
+                                required: {row.isRequired ? "true" : "false"} · filterable: {row.isFilterable ? "true" : "false"} · order: {row.sortOrder}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <label className="flex items-center gap-1 text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={row.isRequired}
+                                  onChange={(e) =>
+                                    setCategoryBindings((prev) =>
+                                      prev.map((item) =>
+                                        item.attributeId === row.attributeId ? { ...item, isRequired: e.target.checked } : item
+                                      )
+                                    )
+                                  }
+                                />
+                                req
+                              </label>
+                              <label className="flex items-center gap-1 text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={row.isFilterable}
+                                  onChange={(e) =>
+                                    setCategoryBindings((prev) =>
+                                      prev.map((item) =>
+                                        item.attributeId === row.attributeId ? { ...item, isFilterable: e.target.checked } : item
+                                      )
+                                    )
+                                  }
+                                />
+                                filter
+                              </label>
+                              <Input
+                                className="w-20 h-8"
+                                type="number"
+                                min={1}
+                                value={row.sortOrder}
+                                onChange={(e) =>
+                                  setCategoryBindings((prev) =>
+                                    prev.map((item) =>
+                                      item.attributeId === row.attributeId
+                                        ? { ...item, sortOrder: Number(e.target.value) || 1 }
+                                        : item
+                                    )
+                                  )
+                                }
+                              />
+                              <Button size="sm" variant="outline" onClick={() => void handleUpdateBinding(row)}>
+                                Сохранить
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 border-red-200 hover:bg-red-50"
+                                onClick={() => void handleUnbindAttribute(row.attributeId)}
+                              >
+                                Убрать
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
             {/* Категории */}
             {activeSection === "categories" && (
               <div className="space-y-4">
@@ -1247,6 +2200,180 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                         </TableBody>
                       </Table>
                     )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Тарифные планы (подписки партнёров) */}
+            {activeSection === "subscription-plans" && (
+              <div className="space-y-4">
+                <div className="flex justify-end">
+                  <Button onClick={() => setPlanCreateOpen(true)} className="bg-[#00AFAE] hover:bg-[#00AFAE]/90">
+                    Создать тариф
+                  </Button>
+                </div>
+                {subscriptionPlansError && (
+                  <div className="text-red-600 bg-red-50 border border-red-200 rounded-xl p-4 text-sm">
+                    {subscriptionPlansError}
+                  </div>
+                )}
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-0">
+                    {subscriptionPlansLoading ? (
+                      <div className="p-12 text-center text-gray-500">Загрузка...</div>
+                    ) : subscriptionPlans.length === 0 ? (
+                      <div className="p-12 text-center text-gray-500">Тарифов пока нет</div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Название</TableHead>
+                            <TableHead>Slug</TableHead>
+                            <TableHead>Цена</TableHead>
+                            <TableHead>Дней</TableHead>
+                            <TableHead>Бесплатно</TableHead>
+                            <TableHead>Статус</TableHead>
+                            <TableHead>Порядок</TableHead>
+                            <TableHead className="w-[240px]">Действия</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {subscriptionPlans.map((p) => {
+                            const active = isSubscriptionPlanActive(p.status);
+                            const busy = planActionId === p.id;
+                            return (
+                              <TableRow key={p.id}>
+                                <TableCell className="font-medium text-[#222222]">{p.name}</TableCell>
+                                <TableCell className="font-mono text-sm">{p.slug}</TableCell>
+                                <TableCell>{p.isFree ? "—" : p.price}</TableCell>
+                                <TableCell>{p.durationDays}</TableCell>
+                                <TableCell>{p.isFree ? "Да" : "Нет"}</TableCell>
+                                <TableCell>
+                                  <Badge className={active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}>
+                                    {p.status || "—"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{p.displayOrder}</TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap gap-1">
+                                    <Button size="sm" variant="outline" onClick={() => openEditSubscriptionPlan(p)}>
+                                      <Pencil className="w-4 h-4 mr-1" />
+                                      Изменить
+                                    </Button>
+                                    {active ? (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-amber-700 border-amber-200"
+                                        disabled={busy}
+                                        onClick={() => setPlanDeactivateTarget(p)}
+                                      >
+                                        Деактивировать
+                                      </Button>
+                                    ) : (
+                                      <Button size="sm" variant="outline" disabled={busy} onClick={() => void handleActivatePlan(p)}>
+                                        Активировать
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {activeSection === "stories" && <AdminStoriesSection />}
+
+            {/* Тест уведомлений (admin) */}
+            {activeSection === "notifications-test" && (
+              <div className="space-y-4 max-w-xl">
+                <p className="text-sm text-gray-600">
+                  Отправка тестового сообщения текущему администратору через выбранные каналы (push, email, sms). Укажите
+                  email получателя — как в Swagger.
+                </p>
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-6 space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="test-notif-title">Заголовок</Label>
+                      <Input
+                        id="test-notif-title"
+                        value={testNotifTitle}
+                        onChange={(e) => setTestNotifTitle(e.target.value)}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="test-notif-message">Текст</Label>
+                      <Textarea
+                        id="test-notif-message"
+                        value={testNotifMessage}
+                        onChange={(e) => setTestNotifMessage(e.target.value)}
+                        rows={3}
+                        className="rounded-xl resize-y min-h-[80px]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="test-notif-email">Email получателя</Label>
+                      <Input
+                        id="test-notif-email"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="user@example.com"
+                        value={testNotifRecipientEmail}
+                        onChange={(e) => setTestNotifRecipientEmail(e.target.value)}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-3 pt-2 border-t border-gray-100">
+                      <p className="text-xs font-medium text-gray-500 uppercase">Каналы</p>
+                      <div className="flex items-center justify-between gap-4">
+                        <Label htmlFor="test-notif-push" className="cursor-pointer">
+                          Push
+                        </Label>
+                        <Switch
+                          id="test-notif-push"
+                          checked={testNotifPush}
+                          onCheckedChange={setTestNotifPush}
+                          className="data-[state=checked]:bg-[#00AFAE]"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <Label htmlFor="test-notif-email-ch" className="cursor-pointer">
+                          Email
+                        </Label>
+                        <Switch
+                          id="test-notif-email-ch"
+                          checked={testNotifEmailChannel}
+                          onCheckedChange={setTestNotifEmailChannel}
+                          className="data-[state=checked]:bg-[#00AFAE]"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <Label htmlFor="test-notif-sms" className="cursor-pointer">
+                          SMS
+                        </Label>
+                        <Switch
+                          id="test-notif-sms"
+                          checked={testNotifSms}
+                          onCheckedChange={setTestNotifSms}
+                          className="data-[state=checked]:bg-[#00AFAE]"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      className="w-full rounded-full bg-[#00AFAE] hover:bg-[#00AFAE]/90"
+                      disabled={testNotifSubmitting}
+                      onClick={() => void handleSendTestNotification()}
+                    >
+                      {testNotifSubmitting ? "Отправка…" : "Отправить тест"}
+                    </Button>
                   </CardContent>
                 </Card>
               </div>
@@ -1924,16 +3051,25 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               <Label>Телефон</Label>
               <Input
                 value={createUserForm.phone}
-                onChange={(e) => setCreateUserForm((f) => ({ ...f, phone: e.target.value }))}
-                placeholder="+7..."
+                onChange={(e) => setCreateUserForm((f) => ({ ...f, phone: formatKzPhoneInput(e.target.value) }))}
+                placeholder="+7 (777) 123-45-67"
               />
             </div>
             <div className="grid gap-2">
               <Label>Город</Label>
-              <Input
-                value={createUserForm.city}
-                onChange={(e) => setCreateUserForm((f) => ({ ...f, city: e.target.value }))}
-              />
+              <Select
+                value={createUserForm.city || ""}
+                onValueChange={(v) => setCreateUserForm((f) => ({ ...f, city: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите город" />
+                </SelectTrigger>
+                <SelectContent>
+                  {KZ_CITIES.map((city) => (
+                    <SelectItem key={city} value={city}>{city}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label>Роль</Label>
@@ -2005,15 +3141,24 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                   <Label>Телефон</Label>
                   <Input
                     value={editUserForm.phone}
-                    onChange={(e) => setEditUserForm((f) => ({ ...f, phone: e.target.value }))}
+                    onChange={(e) => setEditUserForm((f) => ({ ...f, phone: formatKzPhoneInput(e.target.value) }))}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label>Город</Label>
-                  <Input
-                    value={editUserForm.city}
-                    onChange={(e) => setEditUserForm((f) => ({ ...f, city: e.target.value }))}
-                  />
+                  <Select
+                    value={editUserForm.city || ""}
+                    onValueChange={(v) => setEditUserForm((f) => ({ ...f, city: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите город" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {KZ_CITIES.map((city) => (
+                        <SelectItem key={city} value={city}>{city}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <DialogFooter>
@@ -2040,7 +3185,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div><span className="text-gray-500">Email</span><p className="font-medium">{selectedUser.email}</p></div>
                 <div><span className="text-gray-500">Имя</span><p>{selectedUser.firstName} {selectedUser.lastName}</p></div>
-                <div><span className="text-gray-500">Телефон</span><p>{selectedUser.phone || "—"}</p></div>
+                <div><span className="text-gray-500">Телефон</span><p>{formatKzPhoneInput(selectedUser.phone || "") || "—"}</p></div>
                 <div><span className="text-gray-500">Город</span><p>{selectedUser.city || "—"}</p></div>
                 <div><span className="text-gray-500">Роль</span><p><Badge variant="outline">{selectedUser.role}</Badge></p></div>
                 <div><span className="text-gray-500">Email подтверждён</span><p>{selectedUser.emailVerified ? "Да" : "Нет"}</p></div>
@@ -2150,6 +3295,210 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={attributeCreateOpen} onOpenChange={setAttributeCreateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Создать атрибут</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Key *</Label>
+              <Input
+                value={attributeCreateForm.key}
+                onChange={(e) => setAttributeCreateForm((prev) => ({ ...prev, key: e.target.value }))}
+                placeholder="capacity"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Type *</Label>
+                <Select
+                  value={attributeCreateForm.type}
+                  onValueChange={(value) =>
+                    setAttributeCreateForm((prev) => ({
+                      ...prev,
+                      type: value as CreateAdminAttributeRequest["type"],
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INTEGER">INTEGER</SelectItem>
+                    <SelectItem value="STRING">STRING</SelectItem>
+                    <SelectItem value="BOOLEAN">BOOLEAN</SelectItem>
+                    <SelectItem value="STRING_ARRAY">STRING_ARRAY</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>Match strategy *</Label>
+                <Select
+                  value={attributeCreateForm.matchStrategy}
+                  onValueChange={(value) =>
+                    setAttributeCreateForm((prev) => ({
+                      ...prev,
+                      matchStrategy: value as CreateAdminAttributeRequest["matchStrategy"],
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SINGLE_EQ">SINGLE_EQ</SelectItem>
+                    <SelectItem value="SINGLE_GTE">SINGLE_GTE</SelectItem>
+                    <SelectItem value="SINGLE_LTE">SINGLE_LTE</SelectItem>
+                    <SelectItem value="RANGE_CONTAINS">RANGE_CONTAINS</SelectItem>
+                    <SelectItem value="BOOLEAN_MATCH">BOOLEAN_MATCH</SelectItem>
+                    <SelectItem value="ARRAY_CONTAINS">ARRAY_CONTAINS</SelectItem>
+                    <SelectItem value="ARRAY_INTERSECTS">ARRAY_INTERSECTS</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {attributeCreateForm.matchStrategy === "RANGE_CONTAINS" ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>storageKeys.min *</Label>
+                  <Input
+                    value={attributeCreateForm.storageKeys.min || ""}
+                    onChange={(e) =>
+                      setAttributeCreateForm((prev) => ({
+                        ...prev,
+                        storageKeys: { ...prev.storageKeys, min: e.target.value },
+                      }))
+                    }
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>storageKeys.max *</Label>
+                  <Input
+                    value={attributeCreateForm.storageKeys.max || ""}
+                    onChange={(e) =>
+                      setAttributeCreateForm((prev) => ({
+                        ...prev,
+                        storageKeys: { ...prev.storageKeys, max: e.target.value },
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-2">
+                <Label>storageKeys.value *</Label>
+                <Input
+                  value={attributeCreateForm.storageKeys.value || ""}
+                  onChange={(e) =>
+                    setAttributeCreateForm((prev) => ({
+                      ...prev,
+                      storageKeys: { ...prev.storageKeys, value: e.target.value },
+                    }))
+                  }
+                />
+              </div>
+            )}
+            <div className="grid gap-2">
+              <Label>Label RU *</Label>
+              <Input
+                value={attributeCreateForm.labelRu}
+                onChange={(e) => setAttributeCreateForm((prev) => ({ ...prev, labelRu: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Label KZ</Label>
+              <Input
+                value={attributeCreateForm.labelKk || ""}
+                onChange={(e) => setAttributeCreateForm((prev) => ({ ...prev, labelKk: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Unit</Label>
+              <Input
+                value={attributeCreateForm.unit || ""}
+                onChange={(e) => setAttributeCreateForm((prev) => ({ ...prev, unit: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAttributeCreateOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={() => void handleCreateAttribute()} disabled={attributeCreateSubmitting} className="bg-[#00AFAE] hover:bg-[#00AFAE]/90">
+              {attributeCreateSubmitting ? "Создание..." : "Создать"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!attributeDeleteTarget} onOpenChange={(open) => !open && setAttributeDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить атрибут?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {attributeDeleteTarget ? `Атрибут "${attributeDeleteTarget.key}" будет удалён, если он не используется.` : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleDeleteAttribute();
+              }}
+              disabled={attributeDeleteSubmitting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {attributeDeleteSubmitting ? "Удаление..." : "Удалить"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={!!attributeEditTarget} onOpenChange={(open) => !open && setAttributeEditTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Редактировать атрибут</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Label RU *</Label>
+              <Input
+                value={attributeEditForm.labelRu}
+                onChange={(e) => setAttributeEditForm((prev) => ({ ...prev, labelRu: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Label KZ</Label>
+              <Input
+                value={attributeEditForm.labelKk}
+                onChange={(e) => setAttributeEditForm((prev) => ({ ...prev, labelKk: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Unit</Label>
+              <Input
+                value={attributeEditForm.unit}
+                onChange={(e) => setAttributeEditForm((prev) => ({ ...prev, unit: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAttributeEditTarget(null)}>
+              Отмена
+            </Button>
+            <Button
+              onClick={() => void handleUpdateAttribute()}
+              disabled={attributeEditSubmitting}
+              className="bg-[#00AFAE] hover:bg-[#00AFAE]/90"
+            >
+              {attributeEditSubmitting ? "Сохранение..." : "Сохранить"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Создание категории */}
       <Dialog open={categoryCreateOpen} onOpenChange={setCategoryCreateOpen}>
@@ -2270,6 +3619,236 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Создание тарифного плана */}
+      <Dialog open={planCreateOpen} onOpenChange={setPlanCreateOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Создать тариф</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Название *</Label>
+              <Input
+                value={planCreateForm.name}
+                onChange={(e) => setPlanCreateForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Например, Базовый"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Slug *</Label>
+              <Input
+                value={planCreateForm.slug}
+                onChange={(e) => setPlanCreateForm((f) => ({ ...f, slug: e.target.value }))}
+                placeholder="basic"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Описание</Label>
+              <Textarea
+                value={planCreateForm.description}
+                onChange={(e) => setPlanCreateForm((f) => ({ ...f, description: e.target.value }))}
+                rows={3}
+                className="resize-y min-h-[72px]"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Цена</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={planCreateForm.price}
+                  onChange={(e) => setPlanCreateForm((f) => ({ ...f, price: Number(e.target.value) }))}
+                  disabled={planCreateForm.isFree}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Срок (дней) *</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={planCreateForm.durationDays}
+                  onChange={(e) => setPlanCreateForm((f) => ({ ...f, durationDays: Math.max(1, Number(e.target.value) || 1) }))}
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Порядок отображения</Label>
+              <Input
+                type="number"
+                value={planCreateForm.displayOrder}
+                onChange={(e) => setPlanCreateForm((f) => ({ ...f, displayOrder: Number(e.target.value) || 0 }))}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={planCreateForm.isFree}
+                onCheckedChange={(c) => setPlanCreateForm((f) => ({ ...f, isFree: c }))}
+                className="data-[state=checked]:bg-[#00AFAE]"
+              />
+              <Label>Бесплатный тариф</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPlanCreateOpen(false)}>
+              Отмена
+            </Button>
+            <Button
+              onClick={() => void handleCreateSubscriptionPlan()}
+              disabled={planCreateSubmitting}
+              className="bg-[#00AFAE] hover:bg-[#00AFAE]/90"
+            >
+              {planCreateSubmitting ? "Создание..." : "Создать"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Редактирование тарифного плана */}
+      <Dialog open={!!planEditTarget} onOpenChange={(open) => !open && setPlanEditTarget(null)}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Изменить тариф</DialogTitle>
+          </DialogHeader>
+          {planEditTarget && (
+            <>
+              <div className="grid gap-4 py-4">
+                <p className="text-xs text-gray-500">
+                  Slug: <span className="font-mono">{planEditTarget.slug}</span> (меняется только при создании)
+                </p>
+                <div className="grid gap-2">
+                  <Label>Название *</Label>
+                  <Input
+                    value={planEditForm.name}
+                    onChange={(e) => setPlanEditForm((f) => ({ ...f, name: e.target.value }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Описание</Label>
+                  <Textarea
+                    value={planEditForm.description}
+                    onChange={(e) => setPlanEditForm((f) => ({ ...f, description: e.target.value }))}
+                    rows={3}
+                    className="resize-y min-h-[72px]"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Цена</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={planEditForm.price}
+                      onChange={(e) => setPlanEditForm((f) => ({ ...f, price: Number(e.target.value) }))}
+                      disabled={planEditForm.isFree}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Срок (дней) *</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={planEditForm.durationDays}
+                      onChange={(e) => setPlanEditForm((f) => ({ ...f, durationDays: Math.max(1, Number(e.target.value) || 1) }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Порядок отображения</Label>
+                  <Input
+                    type="number"
+                    value={planEditForm.displayOrder}
+                    onChange={(e) => setPlanEditForm((f) => ({ ...f, displayOrder: Number(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={planEditForm.isFree}
+                    onCheckedChange={(c) => setPlanEditForm((f) => ({ ...f, isFree: c }))}
+                    className="data-[state=checked]:bg-[#00AFAE]"
+                  />
+                  <Label>Бесплатный тариф</Label>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setPlanEditTarget(null)}>
+                  Отмена
+                </Button>
+                <Button
+                  onClick={() => void saveEditSubscriptionPlan()}
+                  disabled={planEditSubmitting}
+                  className="bg-[#00AFAE] hover:bg-[#00AFAE]/90"
+                >
+                  {planEditSubmitting ? "Сохранение..." : "Сохранить"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Деактивация тарифа (скрыть из каталога) */}
+      <AlertDialog open={!!planDeactivateTarget} onOpenChange={(open) => !open && setPlanDeactivateTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Деактивировать тариф?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {planDeactivateTarget && (
+                <>
+                  Тариф <strong>{planDeactivateTarget.name}</strong> будет скрыт из каталога для покупки. Запись в базе
+                  останется, при необходимости можно снова активировать.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void confirmDeactivatePlan()}
+              disabled={planDeactivateSubmitting}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {planDeactivateSubmitting ? "Сохранение..." : "Да, скрыть"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Подтверждение удаления отзыва (необратимо) */}
+      <AlertDialog open={!!reviewDeleteTarget} onOpenChange={(open) => !open && setReviewDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить отзыв?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {reviewDeleteTarget && (
+                <>
+                  Отзыв будет <strong>полностью удалён из базы</strong>. Действие необратимо, рейтинг услуги
+                  пересчитается.
+                  <br />
+                  <br />
+                  Услуга: {reviewDeleteTarget.serviceName || "—"}
+                  <br />
+                  Автор: {reviewDeleteTarget.userFullName || "—"}
+                  <br />
+                  Оценка: {Number(reviewDeleteTarget.rating) || 0} / 5
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void confirmDeleteReview()}
+              disabled={reviewDeleteSubmitting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {reviewDeleteSubmitting ? "Удаление..." : "Да, удалить"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Подтверждение удаления категории */}
       <AlertDialog open={!!categoryDeleteTarget} onOpenChange={(open) => !open && setCategoryDeleteTarget(null)}>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ImagePlus, Loader2, Upload } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, ImagePlus, Loader2, MessageCircle, Upload } from "lucide-react";
 import { Button } from "../ui/button";
 import { BookingsApi, type Booking } from "../../data/api/BookingsApi";
 import { bookingStatusLabel, canCancelBooking } from "./bookingStatusLabel";
@@ -13,6 +13,7 @@ import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { ReviewsApi, type Review } from "../../data/api/ReviewsApi";
 import { FilesApi } from "../../data/api/FilesApi";
+import { ChatsApi } from "../../data/api/ChatsApi";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,8 +28,26 @@ import {
 const api = new BookingsApi();
 const reviewsApi = new ReviewsApi();
 const filesApi = new FilesApi();
+const chatsApi = new ChatsApi();
+
+function getChatIdFromUrl(chatUrl?: string): string | null {
+  if (!chatUrl || !chatUrl.startsWith("/")) return null;
+  try {
+    const parsed = new URL(chatUrl, window.location.origin);
+    const queryChatId = parsed.searchParams.get("chatId");
+    if (queryChatId?.trim()) return queryChatId.trim();
+
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    const maybeId = segments[segments.length - 1];
+    if (maybeId && maybeId !== "chats" && maybeId !== "chat") return maybeId;
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 export function BookingDetailPage() {
+  const navigate = useNavigate();
   const { bookingId } = useParams<{ bookingId: string }>();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
@@ -175,6 +194,21 @@ export function BookingDetailPage() {
     setReviewImageUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const contactPartner = async () => {
+    if (!booking) return;
+    try {
+      const chatIdFromUrl = getChatIdFromUrl(booking.chatUrl);
+      if (chatIdFromUrl) {
+        navigate(`/profile/chats?chatId=${encodeURIComponent(chatIdFromUrl)}`);
+        return;
+      }
+      const chat = await chatsApi.createOrGetChat(booking.partnerId);
+      navigate(`/profile/chats?chatId=${encodeURIComponent(chat.id)}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось открыть чат");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-16 text-gray-500">
@@ -266,6 +300,14 @@ export function BookingDetailPage() {
               Отменить бронирование
             </Button>
           )}
+          <Button
+            variant="outline"
+            className="mt-3 ml-0 md:ml-2 border-[#00AFAE] text-[#00AFAE] hover:bg-[#00AFAE]/10"
+            onClick={contactPartner}
+          >
+            <MessageCircle className="w-4 h-4 mr-2" />
+            Связаться с партнёром
+          </Button>
           {String(booking.status).toUpperCase() === "CONFIRMED" &&
             booking.partnerConfirmed &&
             !booking.clientConfirmed && (

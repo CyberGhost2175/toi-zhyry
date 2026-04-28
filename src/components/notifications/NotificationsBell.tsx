@@ -17,7 +17,7 @@ import { navigateFromNotification } from "./notificationNavigation";
 const api = new NotificationsApi();
 
 export function NotificationsBell() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
   const [items, setItems] = useState<AppNotification[]>([]);
@@ -87,7 +87,7 @@ export function NotificationsBell() {
       /* ignore */
     }
     setOpen(false);
-    navigateFromNotification(n, navigate);
+    navigateFromNotification(n, navigate, user?.role);
   };
 
   if (!isAuthenticated) return null;
